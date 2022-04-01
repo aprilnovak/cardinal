@@ -72,6 +72,9 @@ public:
   /// Send boundary heat flux to nekRS
   void sendBoundaryHeatFluxToNek();
 
+  /// Send boundary deformation to nekRS
+  void sendBoundaryDeformationToNek();
+
   /// Send volume mesh deformation flux to nekRS
   void sendVolumeDeformationToNek();
 
@@ -110,6 +113,14 @@ public:
 
 protected:
   virtual void addTemperatureVariable() override { return; }
+
+  /**
+   * Interpolate the MOOSE displacement onto the nekRS mesh
+   * @param[in] elem_id global element ID
+   * @param[in] coarse_disp displacement at the libMesh nodes
+   * @param[in] disp_type displacement type - x, y, or z
+   */
+  void interpolateBoundaryDisplacement(const int elem_id, double * coarse_disp, char disp_type);
 
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
 

@@ -240,6 +240,9 @@ double Pr();
  */
 void copyScratchToDevice(const unsigned int & slots_reserved_by_cardinal);
 
+/// Copy the boundary deformation from host to device
+void copyBoundaryDeformationToDevice();
+
 /// Copy volume deformation of mesh from host to device for moving-mesh problems
 void copyDeformationToDevice();
 
@@ -509,6 +512,13 @@ int Nfaces();
  * @return whether boundary is a flux boundary
  */
 bool isHeatFluxBoundary(const int boundary);
+
+/**
+ * Whether the specific boundary is a moving mesh boundary
+ * @param[in] boundary boundary ID
+ * @return whether boundary is a moving mesh boundary
+ */
+bool isMovingMeshBoundary(const int boundary);
 
 /**
  * Whether the specific boundary is a specified temperature boundary
