@@ -107,6 +107,24 @@ hasMovingMesh()
 }
 
 bool
+hasVariableDt()
+{
+  return platform->options.compareArgs("VARIABLE DT", "TRUE");
+}
+
+bool
+hasElasticitySolver()
+{
+  return platform->options.compareArgs("MESH SOLVER", "ELASTICITY");
+}
+
+bool
+hasUserMeshSolver()
+{
+  return platform->options.compareArgs("MESH SOLVER", "USER");
+}
+
+bool
 endControlElapsedTime()
 {
   return !platform->options.getArgs("STOP AT ELAPSED TIME").empty();
@@ -544,23 +562,6 @@ copyScratchToDevice(const unsigned int & slots_reserved_by_cardinal)
 {
   nrs_t * nrs = (nrs_t *)nrsPtr();
   nrs->o_usrwrk.copyFrom(nrs->usrwrk, slots_reserved_by_cardinal * scalarFieldOffset() * sizeof(dfloat), 0);
-}
-
-void
-copyBoundaryDeformationToDevice()
-{
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-
-  // From Cardinal, we only write the first two "slices" in nrs->usrwrk. But, the user might
-  // be writing other parts of this scratch space from the .udf file. So, we need to be sure
-  // to only copy the slices reserved for Cardinal, so that we don't accidentally overwrite other
-  // parts of o_usrwrk (which from the order of the UDF calls, would always happen *after* the
-  // flux and/or source transfers into nekRS)
-
-  // first two slices are always reserved for the heat flux and volumetric heat source. Either one
-  // or both will be present, but we always reserve the first two slices for this coupling data.
-  // The next 3 are for x, y, and z boundary deformation.
-  nrs->o_usrwrk.copyFrom(nrs->usrwrk, 3 * scalarFieldOffset() * sizeof(dfloat), 2);
 }
 
 void
@@ -1207,7 +1208,7 @@ isHeatFluxBoundary(const int boundary)
 bool
 isMovingMeshBoundary(const int boundary)
 {
-  return bcMap::text(boundary, "mesh") == "fixedValue";
+  return ( bcMap::text(boundary, "mesh") == "fixedValue" || bcMap::text(boundary, "mesh") == "codedFixedValue");
 }
 
 bool
@@ -1401,6 +1402,27 @@ z_displacement(const int id, const dfloat value)
   mesh->z[id] = value;
 }
 
+void
+meshu(const int id, const dfloat value)
+{
+  nrs_t * nrs = (nrs_t *)nrsPtr();
+  nrs->usrwrk[indices.meshu + id] = value;
+}
+
+void
+meshv(const int id, const dfloat value)
+{
+  nrs_t * nrs = (nrs_t *)nrsPtr();
+  nrs->usrwrk[indices.meshv + id] = value;
+}
+
+void
+meshw(const int id, const dfloat value)
+{
+  nrs_t * nrs = (nrs_t *)nrsPtr();
+  nrs->usrwrk[indices.meshw + id] = value;
+}
+
 double (*solutionPointer(const field::NekFieldEnum & field))(int)
 {
   double (*f)(int);
@@ -1480,6 +1502,15 @@ void (*solutionPointer(const field::NekWriteEnum & field))(int, dfloat)
       break;
     case field::z_displacement:
       f = &solution::z_displacement;
+      break;
+    case field::meshu:
+      f = &solution::meshu;
+      break;
+    case field::meshv:
+      f = &solution::meshv;
+      break;
+    case field::meshw:
+      f = &solution::meshw;
       break;
     default:
       throw std::runtime_error("Unhandled NekWriteEnum!");

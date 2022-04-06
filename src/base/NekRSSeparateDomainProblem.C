@@ -201,6 +201,11 @@ NekRSSeparateDomainProblem::initialSetup()
     if (_scalar03_coupling)
       _toNekRS_scalar03 = &getPostprocessorValueByName("inlet_S03");
   }
+
+  if (_nek_mesh->movingMesh())
+    mooseError("Your nekRS sub-app input file has moving_mesh = true. "
+               "Please switch to type = NekRSProblem in the [Problem] block"
+               " or remove moving_mesh=true.");
 }
 
 void

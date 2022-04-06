@@ -1,7 +1,7 @@
 [Tests]
   [missing_displacements]
     type = RunException
-    input = box-test.i
+    input = err1.i
     required_objects = 'NekRSProblem'
 
     # nekRS can't use more processors than elements
@@ -9,5 +9,100 @@
 
     expect_err = "Moving mesh problems require displacements in the \[Mesh\] block!"
     requirement = "The system shall error if NekRSMesh is not paired with displacements for moving mesh problems."
+  []
+  [missing_elasticity_solver]
+    type = RunException
+    input = err2.i
+    required_objects = 'NekRSProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "For moving mesh problems with boundary coupling, your nekRS .par file must have 'solver = elasticity' in the \[MESH\] block!"
+
+    requirement = "The system shall error if moving mesh problems with boundary"
+                  "coupling are not paired with the elasticity mesh solver in nekRS."
+  []
+  [missing_user_solver]
+    type = RunException
+    input = err3.i
+    required_objects = 'NekRSProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "For moving mesh problems with volume coupling, your nekRS .par file must have 'solver = user' in the \[MESH\] block!"
+
+    requirement = "The system shall error if moving mesh problems with volume"
+                  "coupling are not paired with the user mesh solver in nekRS."
+  []
+  [missing_mesh_solver]
+    type = RunException
+    input = err4.i
+    required_objects = 'NekRSProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "Your Cardinal NekRSMesh object has moving_mesh = true, but your nekRS .par file does not have a solver in the \[MESH\] block!"
+
+    requirement = "The system shall error if Cardinal has moving_mesh=true, but there is no mesh solver"
+                  "in the nekRS [MESH] block."
+  []
+  [missing_nekrsproblem]
+    type = RunException
+    input = err5.i
+    required_objects = 'NekRSStandaloneProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "Your nekRS .par file indicates you wish to use one of nekRS's moving mesh solvers. "
+                 "Please switch to type = NekRSProblem in the \[Problem\] block, or remove moving "
+                 "mesh solvers from your .par file's \[Mesh\] block."
+
+    requirement = "The system shall error if the nekRS .par file has a  moving mesh solver"
+                  "but the problem type in Cardinal is not NekRSProblem."
+  []
+  [missing_mv_boundary]
+    type = RunException
+    input = err6.i
+    required_objects = 'NekRSProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "For boundary-coupled moving mesh problems, you need at least one boundary in the 'NekRS' "
+                 ".par file to be of the type 'fixedValue' in the \[MESH\] block."
+
+    requirement = "The system shall error if the Nek sub-app input file's [Mesh] block has moving_mesh"
+                  " set to true but the nekRS .par file has no moving mesh (fixedValue) boundary in the"
+                  " [Mesh] block."
+  []
+  [moving_mesh_with_nrsseparatedomain]
+    type = RunException
+    input = err7.i
+    required_objects = 'NekRSSeparateDomainProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "Your nekRS sub-app input file has moving_mesh = true. Please switch to type = NekRSProblem in the \[Problem\] block or remove moving_mesh=true."
+
+    requirement = "The system shall error if the Nek sub-app input file's [Mesh] block has moving_mesh"
+                  " set to true but the problem type is NekRSSeparateDomainProblem."
+  []
+  [moving_mesh_with_nrsstandalone]
+    type = RunException
+    input = err8.i
+    required_objects = 'NekRSStandaloneProblem'
+
+    # nekRS can't use more processors than elements
+    max_parallel = 64
+
+    expect_err = "Your nekRS sub-app input file has moving_mesh = true. Please switch to type = NekRSProblem in the \[Problem\] block or remove moving_mesh=true."
+
+    requirement = "The system shall error if the Nek sub-app input file's [Mesh] block has moving_mesh"
+                  " set to true but the problem type is NekRSStandaloneProblem."
   []
 []

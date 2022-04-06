@@ -40,7 +40,6 @@ InputParameters
 NekRSProblem::validParams()
 {
   InputParameters params = NekRSProblemBase::validParams();
-  params.addParam<bool>("moving_mesh", false, "Whether we have a moving mesh problem or not");
 
   params.addParam<bool>("has_heat_source",
                         true,
@@ -62,29 +61,28 @@ NekRSProblem::validParams()
 NekRSProblem::NekRSProblem(const InputParameters & params)
   : NekRSProblemBase(params),
     _serialized_solution(NumericVector<Number>::build(_communicator).release()),
-    _moving_mesh(getParam<bool>("moving_mesh")),
     _has_heat_source(getParam<bool>("has_heat_source")),
-    _usrwrk_indices(MultiMooseEnum("flux heat_source x_displacement y_displacement z_displacement unused"))
+    _usrwrk_indices(MultiMooseEnum("flux heat_source meshu meshv meshw unused"))
 {
   // Determine an appropriate default usrwrk indexing; the ordering will always be
   //   0: flux             (if _boundary is true)
   //   1: heat_source      (if _volume is true and _has_heat_source is true)
-  //   2: x_displacement   (if _moving_mesh is true)
-  //   3: y_displacement   (if _moving_mesh is true)
-  //   4: z_displacement   (if _moving_mesh is true)
+  //   2: meshu (x_mesh_velocity)   (if _moving_mesh is true)
+  //   3: meshv (y_mesh_velocity)   (if _moving_mesh is true)
+  //   4: meshw (z_mesh_velocity)   (if _moving_mesh is true)
   //
   // The most we will do is skip allocating terms at the end of this ordering if we
   // don't need them. We never change the ordering of "earlier" terms.
   std::vector<std::string> str_indices =
-    {"flux", "heat_source", "x_displacement", "y_displacement", "z_displacement"};
+    {"flux", "heat_source", "meshu", "meshv", "meshw"};
   indices.flux = 0 * nekrs::scalarFieldOffset();
   indices.heat_source = 1 * nekrs::scalarFieldOffset();
-  indices.x_displacement = 2 * nekrs::scalarFieldOffset();
-  indices.y_displacement = 3 * nekrs::scalarFieldOffset();
-  indices.z_displacement = 4 * nekrs::scalarFieldOffset();
+  indices.meshu = 2 * nekrs::scalarFieldOffset();
+  indices.meshv = 3 * nekrs::scalarFieldOffset();
+  indices.meshw = 4 * nekrs::scalarFieldOffset();
 
   // progressively erase terms from the back if we don't need them
-  if (!_moving_mesh)
+  if (!hasMovingNekMesh())
   {
     str_indices.erase(str_indices.begin() + 2, str_indices.end());
 
@@ -105,12 +103,9 @@ NekRSProblem::NekRSProblem(const InputParameters & params)
 
   printScratchSpaceInfo(_usrwrk_indices);
 
-  // will be implemented soon
-  if (_moving_mesh)
+  if (hasMovingNekMesh())
   {
-    if (_nondimensional)
-      mooseError("Moving mesh features are not yet implemented for a non-dimensional nekRS case!");
-
+    // will be implemented soon
     if (!_nek_mesh->getMesh().is_replicated())
       mooseError("Distributed mesh features are not yet implemented for moving mesh cases!");
 
@@ -129,13 +124,14 @@ NekRSProblem::NekRSProblem(const InputParameters & params)
     _source_elem = (double *)calloc(_n_vertices_per_volume, sizeof(double));
   }
 
-  if (_moving_mesh)
+  if (hasMovingNekMesh())
   {
     if (_boundary)
     {
        _displacement_x = (double *)calloc(_n_vertices_per_surface, sizeof(double));
        _displacement_y = (double *)calloc(_n_vertices_per_surface, sizeof(double));
        _displacement_z = (double *)calloc(_n_vertices_per_surface, sizeof(double));
+
     }
     else if (_volume)
     {
@@ -161,6 +157,13 @@ NekRSProblem::~NekRSProblem()
   freePointer(_displacement_x);
   freePointer(_displacement_y);
   freePointer(_displacement_z);
+
+  if (_boundary && hasMovingNekMesh())
+  {
+    freePointer(_prev_disp_x);
+    freePointer(_prev_disp_y);
+    freePointer(_prev_disp_z);
+  }
 }
 
 void
@@ -200,21 +203,23 @@ NekRSProblem::initialSetup()
                    std::to_string(b) + " is of type '" + type + "' instead of 'fixedGradient'.");
       }
   }
-//  TODO: Check if there is at least one "mv" BC in the NekRS par file
 
-//  if (boundary && _moving_mesh)
-//  {
-//    bool _has_mv_bc - true;
-//    for (const auto & b : *boundary)
-//      if (nekrs::mesh::isMovingMeshBoundary(b))
-//      {
-//        _has_mv_bc = true;
-//        break;
-//      }
-//    if(!_has_mv_bc)
-//      mooseError("In order to use boundary mesh mirror for moving mesh problems, you must have "
-//                 "at least one 'mv'/'fixedValue' boundary condition for the moving boundary.");
-//  }
+  if (boundary && hasMovingNekMesh() && nekrs::hasElasticitySolver())
+  {
+    bool has_one_mv_bc = false;
+    for (const auto & b : *boundary)
+    {
+      if(nekrs::mesh::isMovingMeshBoundary(b))
+        {
+          has_one_mv_bc = true;
+          break;
+        }
+    }
+    if (!has_one_mv_bc)
+      mooseError("For boundary-coupled moving mesh problems, you need at least one "
+                 "boundary in the 'NekRS' .par file to be of the type 'fixedValue'"
+                 " in the [MESH] block.");
+  }
 
   // For volume-based coupling, we should check that there is a udf function providing
   // the source for the passive scalar equations (this is the analogue of the boundary
@@ -228,9 +233,17 @@ NekRSProblem::initialSetup()
           "for the source\nin the passive scalar equations! If you don't have an energy source\n"
           "in your NekRS domain, you can disable this error with 'has_heat_source = false'.");
 
-  if (_moving_mesh && !nekrs::hasMovingMesh())
-    mooseError("In order for MOOSE to compute a mesh deformation in NekRS, you "
+  if (hasMovingNekMesh() && !nekrs::hasMovingMesh())
+    mooseError("Your Cardinal NekRSMesh object has moving_mesh = true, but your nekRS .par file does"
+               " not have a solver in the [MESH] block!");
+
+  if (hasMovingNekMesh() && _volume && !nekrs::hasUserMeshSolver())
+    mooseError("For moving mesh problems with volume coupling, your nekRS .par file "
                "must have 'solver = user' in the [MESH] block!");
+
+  if (hasMovingNekMesh() && _boundary && !nekrs::hasElasticitySolver())
+    mooseError("For moving mesh problems with boundary coupling, your nekRS .par file "
+               "must have 'solver = elasticity' in the [MESH] block!");
 
   if (_boundary)
     _flux_integral = &getPostprocessorValueByName("flux_integral");
@@ -250,7 +263,7 @@ NekRSProblem::initialSetup()
   }
 
   // save initial mesh for moving mesh problems to match deformation in exodus output files
-  if (_moving_mesh && !_disable_fld_file_output)
+  if (hasMovingNekMesh() && !_disable_fld_file_output)
     nekrs::outfld(_timestepper->nondimensionalDT(_time));
 }
 
@@ -291,57 +304,43 @@ NekRSProblem::sendBoundaryDeformationToNek()
 
   auto & mesh = _nek_mesh->getMesh();
 
+  _console << "Sending boundary deformation to NekRS boundary " << Moose::stringify(*_boundary) << std::endl;
+
+  for (unsigned int e = 0; e < _n_surface_elems; e++)
   {
-    _console << "Sending boundary deformation to NekRS boundary " << Moose::stringify(*_boundary) << std::endl;
-
-    for (unsigned int e = 0; e < _n_surface_elems; e++)
+    auto elem_ptr = mesh.query_elem_ptr(e);
+    // Only work on elements we can find on our local chunk of a
+    // distributed mesh
+    if (!elem_ptr)
     {
-      auto elem_ptr = mesh.query_elem_ptr(e);
-
-      // Only work on elements we can find on our local chunk of a
-      // distributed mesh
-      if (!elem_ptr)
-      {
-        libmesh_assert(!mesh.is_serial());
-        continue;
-      }
-
-      for (unsigned int n = 0; n < _n_vertices_per_surface; n++)
-      {
-        auto node_ptr = elem_ptr->node_ptr(n);
-
-        // For each face, get the boundary displacement at the libMesh nodes. This will be passed into
-        // nekRS AS MESH VELOCITY, which will interpolate onto its GLL points. Because we are looping over
-        // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
-        // determine the offset in the nekRS arrays.
-        int node_index = _nek_mesh->boundaryNodeIndex(n);
-        auto node_offset = e * _n_vertices_per_surface + node_index;
-        auto dof_idx1 = node_ptr->dof_number(sys_number, _disp_x_var, 0);
-        auto dof_idx2 = node_ptr->dof_number(sys_number, _disp_y_var, 0);
-        auto dof_idx3 = node_ptr->dof_number(sys_number, _disp_z_var, 0);
-        _displacement_x[node_index] = (*_serialized_solution)(dof_idx1);
-        _displacement_y[node_index] = (*_serialized_solution)(dof_idx2);
-        _displacement_z[node_index] = (*_serialized_solution)(dof_idx3);
-      }
-
-      // Now that we have the displacement at the nodes of the NekRSMesh, we can interpolate them
-      // onto the nekRS GLL points
-      interpolateBoundaryDisplacement(e, _displacement_x,'x');
-      interpolateBoundaryDisplacement(e, _displacement_y,'y');
-      interpolateBoundaryDisplacement(e, _displacement_z,'z');
+      libmesh_assert(!mesh.is_serial());
+      continue;
     }
+
+    for (unsigned int n = 0; n < _n_vertices_per_surface; n++)
+    {
+      auto node_ptr = elem_ptr->node_ptr(n);
+
+      // For each face, get the boundary displacement at the libMesh nodes. This will be passed into
+      // nekRS AS MESH VELOCITY, which will interpolate onto its GLL points. Because we are looping over
+      // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
+      // determine the offset in the nekRS arrays.
+      int node_index = _nek_mesh->boundaryNodeIndex(n);
+      auto dof_idx1 = node_ptr->dof_number(sys_number, _disp_x_var, 0);
+      auto dof_idx2 = node_ptr->dof_number(sys_number, _disp_y_var, 0);
+      auto dof_idx3 = node_ptr->dof_number(sys_number, _disp_z_var, 0);
+      _displacement_x[node_index] = (*_serialized_solution)(dof_idx1);
+      _displacement_y[node_index] = (*_serialized_solution)(dof_idx2);
+      _displacement_z[node_index] = (*_serialized_solution)(dof_idx3);
+    }
+    // Now that we have the displacement at the nodes of the NekRSMesh, we can interpolate them
+    // onto the nekRS GLL points
+    calculateMeshVelocity(e, field::meshu);
+    calculateMeshVelocity(e, field::meshv);
+    calculateMeshVelocity(e, field::meshw);
   }
 
-
-//    TODO: check deformation in MOOSE vs Nek?
-  // If before normalization, there is a large difference between the nekRS imposed flux
-  // and the MOOSE flux, this could mean that there is a poor match between the domains,
-  // even if neither value is zero. For instance, if you forgot that the nekRS mesh is in
-  // units of centimeters, but you're coupling to an app based in meters, the fluxes will
-  // be very different from one another.
-//  if (moose_flux && (std::abs(nek_flux * nek_flux_print_mult - moose_flux) / moose_flux) > 0.25)
-//    mooseDoOnce(mooseWarning("nekRS flux differs from MOOSE flux by more than 25\%! "
-//                             "This could indicate that your geometries do not line up properly."));
+  _displaced_problem->updateMesh();
 }
 
 void
@@ -494,6 +493,11 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
 void
 NekRSProblem::sendVolumeDeformationToNek()
 {
+  double disp_scale = 1.0;
+
+  if (_nondimensional)
+   disp_scale = 1.0/nekrs::solution::referenceLength();
+
   auto & solution = _aux->solution();
   auto sys_number = _aux->number();
 
@@ -534,9 +538,9 @@ NekRSProblem::sendVolumeDeformationToNek()
       auto dof_idx1 = node_ptr->dof_number(sys_number, _disp_x_var, 0);
       auto dof_idx2 = node_ptr->dof_number(sys_number, _disp_y_var, 0);
       auto dof_idx3 = node_ptr->dof_number(sys_number, _disp_z_var, 0);
-      _displacement_x[node_index] = (*_serialized_solution)(dof_idx1);
-      _displacement_y[node_index] = (*_serialized_solution)(dof_idx2);
-      _displacement_z[node_index] = (*_serialized_solution)(dof_idx3);
+      _displacement_x[node_index] = (*_serialized_solution)(dof_idx1)*disp_scale;
+      _displacement_y[node_index] = (*_serialized_solution)(dof_idx2)*disp_scale;
+      _displacement_z[node_index] = (*_serialized_solution)(dof_idx3)*disp_scale;
     }
 
     // Now that we have the displacement at the nodes of the NekRSMesh, we can interpolate them
@@ -687,27 +691,26 @@ NekRSProblem::syncSolutions(ExternalProblem::Direction direction)
       if (_volume && _has_heat_source)
         sendVolumeHeatSourceToNek();
 
-      // copy the boundary heat flux and/or volume heat source in the scratch space to device
-      nekrs::copyScratchToDevice(_minimum_scratch_size_for_coupling);
 
-      // copy the boundary deformation in the scratch space to device
-      nekrs::copyBoundaryDeformationToDevice();
-
-      if (_moving_mesh)
+      if (hasMovingNekMesh())
       {
         if (_volume)
         {
           sendVolumeDeformationToNek();
-          nekrs::copyDeformationToDevice();
         }
         else if (_boundary)
         {
           sendBoundaryDeformationToNek();
-          nekrs::copyBoundaryDeformationToDevice();
         }
-        // no boundary-based mesh movement available in nekRS yet
       }
 
+      // copy the boundary heat flux and/or volume heat source in the scratch space to device
+      nekrs::copyScratchToDevice(_minimum_scratch_size_for_coupling);
+      if (hasMovingNekMesh())
+      {
+      // update geometric factors and the mesh on the device
+        nekrs::copyDeformationToDevice();
+      }
       break;
     }
 
@@ -805,7 +808,7 @@ NekRSProblem::addExternalVariables()
 
   // add the displacement aux variables from the solid mechanics solver; these will
   // be needed regardless of whether the displacement is boundary- or volume-based
-  if (_moving_mesh)
+  if (hasMovingNekMesh())
   {
     addAuxVariable("MooseVariable", "disp_x", var_params);
     _disp_x_var = _aux->getFieldVariable<Real>(0, "disp_x").number();
@@ -819,89 +822,44 @@ NekRSProblem::addExternalVariables()
 }
 
 void
-NekRSProblem::flux(const int elem_id, double * flux_face)
+NekRSProblem::calculateMeshVelocity(int e, const field::NekWriteEnum & field)
 {
-  const auto & bc = _nek_mesh->boundaryCoupling();
+  int len = _nek_mesh->order() + 2;
+  double *tmp_meshvel = (double *)calloc(len*len, sizeof(double));
+  double dt = _timestepper->getCurrentDT();
 
-  // We can only write into the nekRS scratch space if that face is "owned" by the current process
-  if (nekrs::commRank() == bc.processor_id(elem_id))
+  switch (field)
   {
-    nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
-    mesh_t * mesh = nekrs::temperatureMesh();
-
-    int end_1d = mesh->Nq;
-    int start_1d = _nek_mesh->order() + 2;
-    int end_2d = end_1d * end_1d;
-
-    int e = bc.element[elem_id];
-    int f = bc.face[elem_id];
-
-    double * scratch = (double *)calloc(start_1d * end_1d, sizeof(double));
-    double * flux_tmp = (double *)calloc(end_2d, sizeof(double));
-
-    nekrs::interpolateSurfaceFaceHex3D(
-        scratch, _interpolation_incoming, flux_face, start_1d, flux_tmp, end_1d);
-
-    int offset = e * mesh->Nfaces * mesh->Nfp + f * mesh->Nfp;
-    for (int i = 0; i < end_2d; ++i)
-    {
-      int id = mesh->vmapM[offset + i];
-      nrs->usrwrk[id] = flux_tmp[i];
-    }
-
-    freePointer(scratch);
-    freePointer(flux_tmp);
-  }
-}
-
-void
-NekRSProblem::interpolateBoundaryDisplacement(const int elem_id, double * coarse_disp, char disp_type)
-{
-  const auto & bc = _nek_mesh->boundaryCoupling();
-  // offset value for usrwrk writing slots
-  int disp_offset = 0;
-
-  switch(disp_type)
-  {
-    case 'x':
-      disp_offset = 2;
-    case 'y':
-      disp_offset = 3;
-    case 'z':
-      disp_offset = 4;
+    case field::meshu:
+      for (int i=0; i <len * len; i++)
+      {
+        tmp_meshvel[i] = ( _displacement_x[i]-_nek_mesh->prev_disp_x().at((e*len*len) + i))
+                           /dt/_U_ref;
+      }
+      writeBoundarySolution(e, field::meshu,tmp_meshvel);
+      _nek_mesh->updateDisplacement(e, _displacement_x, field::x_displacement);
+      break;
+    case field::meshv:
+      for (int i=0; i <len * len; i++)
+      {
+        tmp_meshvel[i] = ( _displacement_y[i]-_nek_mesh->prev_disp_y().at((e*len*len) + i))
+                           /dt/_U_ref;
+      }
+      writeBoundarySolution(e, field::meshv,tmp_meshvel);
+      _nek_mesh->updateDisplacement(e, _displacement_y, field::y_displacement);
+      break;
+    case field::meshw:
+      for (int i=0; i <len * len; i++)
+      {
+        tmp_meshvel[i] = ( _displacement_z[i]-_nek_mesh->prev_disp_z().at((e*len*len) + i))
+                           /dt/_U_ref;
+      }
+      writeBoundarySolution(e, field::meshw,tmp_meshvel);
+      _nek_mesh->updateDisplacement(e, _displacement_z, field::z_displacement);
+      break;
     default:
-      mooseError("Invalid displacement passed to NekRSProblem::interpolateBoundaryDisplacement."
-                 " Please pass 'x','y', or 'z' as the third argument");
+      throw std::runtime_error("Unhandled NekWriteEnum in NekRSProblem::interpolateBoundaryDisplacement!\n");
   }
-
-  // We can only write into the nekRS scratch space if that face is "owned" by the current process
-  if (nekrs::commRank() == bc.processor_id(elem_id))
-  {
-    nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
-    mesh_t * mesh = nekrs::temperatureMesh();
-
-    int end_1d = mesh->Nq;
-    int start_1d = _nek_mesh->order() + 2;
-    int end_2d = end_1d * end_1d;
-
-    int e = bc.element[elem_id];
-    int f = bc.face[elem_id];
-
-    double * scratch = (double *)calloc(start_1d * end_1d, sizeof(double));
-    double * fine_disp = (double *)calloc(end_2d, sizeof(double));
-
-    nekrs::interpolateSurfaceFaceHex3D(
-        scratch, _interpolation_incoming, coarse_disp, start_1d, fine_disp, end_1d);
-
-    int offset = e * mesh->Nfaces * mesh->Nfp + f * mesh->Nfp;
-    for (int i = 0; i < end_2d; ++i)
-    {
-      int id = mesh->vmapM[offset*disp_offset + i];
-      nrs->usrwrk[id] = fine_disp[i];
-    }
-
-    freePointer(scratch);
-    freePointer(fine_disp);
-  }
+  free(tmp_meshvel);
 }
 #endif

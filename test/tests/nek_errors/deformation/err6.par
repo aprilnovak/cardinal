@@ -1,0 +1,30 @@
+[GENERAL]
+polynomialOrder = 2
+stopAt = numSteps
+numSteps = 100
+dt = 1e-3
+timeStepper = tombo2
+writeInterval = 100
+
+[MESH]
+# boundaryTypeMap = zeroValue,fixedValue,zeroValue,zeroValue,zeroValue,zeroValue
+boundaryTypeMap = zeroValue,zeroValue,zeroValue,zeroValue,zeroValue,zeroValue
+solver = elasticity
+file = "nekbox.re2"
+
+[PROBLEMTYPE]
+stressFormulation = true
+
+[PRESSURE]
+residualTol = 1e-4
+preconditioner = multigrid
+initialGuess = previous
+
+[VELOCITY]
+density = 1.0
+viscosity = -100.0
+boundaryTypeMap = zeroValue,fixedValue,zeroValue,zeroValue,zeroValue,zeroGradient
+residualTol = 1e-5
+
+[TEMPERATURE]
+solver = none

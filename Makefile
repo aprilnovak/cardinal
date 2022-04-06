@@ -128,6 +128,11 @@ NEKRS_INCLUDES := \
 	-I$(NEKRS_DIR)/src/linAlg \
 	-I$(NEKRS_DIR)/src/lns \
 	-I$(NEKRS_DIR)/src/mesh \
+	-I$(NEKRS_DIR)/src/bdry \
+	-I$(NEKRS_DIR)/src/ioUtils \
+	-I$(NEKRS_DIR)/src/navierStokes \
+	-I$(NEKRS_DIR)/src/postProcessing \
+	-I$(NEKRS_DIR)/src/utils \
 	-I$(NEKRS_DIR)/src/nekInterface \
 	-I$(NEKRS_DIR)/src/plugins \
 	-I$(NEKRS_DIR)/src/regularization \

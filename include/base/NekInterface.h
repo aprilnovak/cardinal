@@ -24,7 +24,6 @@
 #include "NekVolumeCoupling.h"
 #include "nekrs.hpp"
 #include "bcMap.hpp"
-#include "io.hpp"
 #include "udf.hpp"
 #include "meshSetup.hpp"
 #include "libmesh/point.h"
@@ -104,6 +103,23 @@ bool hasCHT();
  */
 bool hasMovingMesh();
 
+/**
+ * Whether nekRS's input file indicates a variable time stepping scheme
+ * @return whether nekRS's input file indicates a variable time stepping
+ */
+bool hasVariableDt();
+
+/**
+ * Whether nekRS's input file has the elasticity mesh solver
+ * @return whether nekRS's input file has [MESH] solver = elasticity
+ */
+bool hasElasticitySolver();
+
+/**
+ * Whether nekRS's input file has the user mesh solver
+ * @return whether nekRS's input file has [MESH] solver = user
+ */
+bool hasUserMeshSolver();
 /**
  * Whether nekRS's input file intends to terminate the simulation based on a wall time
  * @return whether a wall time is used in nekRS to end the simulation
@@ -241,9 +257,6 @@ double Pr();
 void copyScratchToDevice(const unsigned int & slots_reserved_by_cardinal);
 
 /// Copy the boundary deformation from host to device
-void copyBoundaryDeformationToDevice();
-
-/// Copy volume deformation of mesh from host to device for moving-mesh problems
 void copyDeformationToDevice();
 
 template <typename T>
@@ -599,11 +612,11 @@ struct usrwrkIndices
 
   int heat_source;
 
-  int x_displacement;
+  int meshu;
 
-  int y_displacement;
+  int meshv;
 
-  int z_displacement;
+  int meshw;
 };
 
 namespace solution

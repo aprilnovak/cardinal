@@ -48,6 +48,11 @@ NekRSStandaloneProblem::NekRSStandaloneProblem(const InputParameters & params)
     checkUnusedParam(params, "n_usrwrk_slots", "using running NekRS as a standalone "
       "problem through Cardinal");
   _n_usrwrk_slots = 0;
+
+  if (_nek_mesh->movingMesh())
+    mooseError("Your nekRS sub-app input file has moving_mesh = true. "
+               "Please switch to type = NekRSProblem in the [Problem] block"
+               " or remove moving_mesh=true.");
 }
 
 bool

@@ -141,15 +141,21 @@ NekInitAction::act()
     }
 
     nekrs::setup(comm,
+                 comm,
                  build_only,
                  size_target,
                  ci_mode,
-                 cache_dir,
                  casename,
-                 backend,
-                 device_id);
-
+                 "" /* backend */,
+                 "" /* device ID */,
+                 0 /* debug mode */);
     _n_cases++;
+
+    if (nekrs::hasMovingMesh() && _type != "NekRSProblem")
+      mooseError("Your nekRS .par file indicates you wish to use one of nekRS's moving mesh solvers. Please switch"
+                 " to type = NekRSProblem in the [Problem] block, or remove moving mesh solvers from your "
+                 ".par file's [Mesh] block.");
+
   }
 
   // setup actions only needed if coupling with MOOSE

@@ -105,7 +105,7 @@ NekTimeStepper::NekTimeStepper(const InputParameters & parameters)
   // by MOOSE. This circular dependency was giving me floating point issues with synchronization
   // for some subcycling applications. So, until we have variable time stepping in nekRS, let's
   // set a fixed time step here.
-  _nek_dt = nekrs::dt();
+  _nek_dt = nekrs::dt(0);
 }
 
 Real

@@ -1,11 +1,11 @@
 # These have the same names and meanings as in makenrs
-NEKRS_CFLAGS :=
-NEKRS_CXXFLAGS :=
-NEKRS_FFLAGS :=
+NEKRS_CFLAGS :="-g"
+NEKRS_CXXFLAGS :="-g"
+NEKRS_FFLAGS :="-g"
 NEKRS_NEK5000_PPLIST := PARRSB DPROCMAP
 NEKRS_LIBP_DEFINES := -DUSE_NULL_PROJECTION=1
 USE_OCCA_MEM_BYTE_ALIGN := 64
-OCCA_CXXFLAGS := -O2 -ftree-vectorize -funroll-loops -march=native -mtune=native
+OCCA_CXXFLAGS := -O2 -ftree-vectorize -funroll-loops -march=native -mtune=native -g
 
 # autoconf-archive puts some arguments (e.g. -std=c++17) into the compiler
 # variable rather than the compiler flags variable.

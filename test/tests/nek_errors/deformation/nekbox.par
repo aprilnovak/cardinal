@@ -6,12 +6,12 @@
   numSteps = 3
   dt = 1.0
   polynomialOrder = 2
-  writeControl = timeStep
+  writeControl = steps
   writeInterval = 1
-  extrapolation = subCycling
 
 [MESH]
   solver = user
+  file = "nekbox.re2"
 
 [VELOCITY]
   solver = none

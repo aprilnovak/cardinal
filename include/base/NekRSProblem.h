@@ -109,23 +109,28 @@ public:
    */
   virtual double minInterpolatedTemperature() const;
 
-  virtual bool movingMesh() const override { return _moving_mesh; }
+  virtual const bool hasMovingNekMesh() const override { return _nek_mesh->movingMesh(); }
 
 protected:
   virtual void addTemperatureVariable() override { return; }
 
   /**
-   * Interpolate the MOOSE displacement onto the nekRS mesh
-   * @param[in] elem_id global element ID
-   * @param[in] coarse_disp displacement at the libMesh nodes
-   * @param[in] disp_type displacement type - x, y, or z
+   * Calculate mesh velocity for NekRS's elasticity solver using current and previous displacement values
+   * and write it to nrs->usrwrk, from where it can be accessed in nekRS's .oudf file.
+   * @param[in] e Boundary element that the displacement values belong to
+   * @param[in] field NekWriteEnum meshu/v/w (x/y/z mesh velocity) field
    */
-  void interpolateBoundaryDisplacement(const int elem_id, double * coarse_disp, char disp_type);
+  void calculateMeshVelocity(int e, const field::NekWriteEnum & field);
+
+  /**
+   * Calculate mesh velocity for NekRS's elasticity solver using current and previous displacement values
+   * @param[in] fine_disp Current displacement value interpolated on to the finer, higher-order NekRS mesh
+   * @param[in] field NekWriteEnum displacement_x/y/z field to identify fine_disp as x/y/z displacement
+   * @return mesh velocity
+   */
+  double* calculateMeshVelocity(double * fine_disp, const field::NekWriteEnum & field);
 
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
-
-  /// Whether the problem is a moving mesh problem i.e. with on-the-fly mesh deformation enabled
-  const bool & _moving_mesh;
 
   /// Whether a heat source will be applied to NekRS from MOOSE
   const bool & _has_heat_source;

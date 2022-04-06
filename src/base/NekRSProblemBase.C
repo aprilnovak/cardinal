@@ -906,7 +906,7 @@ NekRSProblemBase::writeBoundarySolution(const int elem_id, const field::NekWrite
     {
       int id = mesh->vmapM[offset + i];
       double extra = (add == nullptr) ? 0.0 : (*add)[id];
-      write_solution(id, tmp[i]);
+      write_solution(id, tmp[i]+extra);
     }
 
     freePointer(tmp);
