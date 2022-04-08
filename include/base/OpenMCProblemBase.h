@@ -42,6 +42,13 @@ public:
   typedef std::pair<int32_t, int32_t> cellInfo;
 
   /**
+   * Gather cellInfo across ranks (entries may be duplicated if a cell maps
+   * to more than one rank - further parallel operations then are used to
+   * get the desired information).
+   */
+  std::vector<cellInfo> gatherCellInfo(const std::map<cellInfo, std::vector<unsigned int>> & v) const;
+
+  /**
    * Get the number of particles used in the current Monte Carlo calculation
    * @return number of particles
    */
@@ -85,6 +92,27 @@ public:
    * @return path output
    */
   std::string pathOutput() const { return _path_output; }
+
+  /**
+   * Get the total (i.e. summed across all ranks, if distributed)
+   * number of elements in a given block
+   * @param[in] block_id subdomainID
+   * return number of elements in block
+   */
+  unsigned int numElemsInSubdomain(const SubdomainID & id) const;
+
+  /**
+   * Whether the element is owned by this rank
+   * @return whether element is owned by this rank
+   */
+  bool isLocalElem(const Elem * elem) const;
+
+  /**
+   * Get the global element ID from the local element ID
+   * @param[in] id local element ID
+   * @return global element ID
+   */
+  unsigned int globalElemID(const unsigned int & id) const { return _local_to_global_elem[id]; }
 
 protected:
   /**
@@ -140,4 +168,7 @@ protected:
 
   /// Directory where OpenMC output files are written
   std::string _path_output;
+
+  /// Mapping from local element indices to global element indices for this rank
+  std::vector<unsigned int> _local_to_global_elem;
 };

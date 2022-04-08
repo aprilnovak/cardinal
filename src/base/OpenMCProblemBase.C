@@ -112,6 +112,16 @@ OpenMCProblemBase::OpenMCProblemBase(const InputParameters & params)
   _n_openmc_cells = 0.0;
   for (const auto & c : openmc::model::cells)
     _n_openmc_cells += c->n_instances_;
+
+  // establish the local -> global element mapping for convenience
+  for (unsigned int e = 0; e < _mesh.nElem(); ++e)
+  {
+    const auto * elem = _mesh.queryElemPtr(e);
+    if (!isLocalElem(elem))
+      continue;
+
+    _local_to_global_elem.push_back(e);
+  }
 }
 
 void
@@ -127,11 +137,12 @@ OpenMCProblemBase::fillElementalAuxVariable(const unsigned int & var_num,
   for (const auto & e : elem_ids)
   {
     auto elem_ptr = mesh.query_elem_ptr(e);
-    if (elem_ptr)
-    {
-      auto dof_idx = elem_ptr->dof_number(sys_number, var_num, 0);
-      solution.set(dof_idx, value);
-    }
+
+    if (!isLocalElem(elem_ptr))
+      continue;
+
+    auto dof_idx = elem_ptr->dof_number(sys_number, var_num, 0);
+    solution.set(dof_idx, value);
   }
 }
 
@@ -226,6 +237,65 @@ OpenMCProblemBase::writeSourceBank(const std::string & filename)
   openmc::write_attribute(file_id, "filetype", "source");
   openmc::write_source_bank(file_id, false);
   openmc::file_close(file_id);
+}
+
+unsigned int
+OpenMCProblemBase::numElemsInSubdomain(const SubdomainID & id) const
+{
+  unsigned int n = 0;
+  for (unsigned int e = 0; e < _mesh.nElem(); ++e)
+  {
+    const auto * elem = _mesh.queryElemPtr(e);
+
+    if (!isLocalElem(elem))
+      continue;
+
+    const auto subdomain_id = elem->subdomain_id();
+    if (id == subdomain_id)
+      n += 1;
+  }
+
+  _communicator.sum(n);
+
+  return n;
+}
+
+bool
+OpenMCProblemBase::isLocalElem(const Elem * elem) const
+{
+  if (!elem)
+  {
+    // we should only not be able to find an element if the mesh is distributed
+    libmesh_assert(!_mesh.is_serial());
+    return false;
+  }
+
+  if (elem->processor_id() == _communicator.rank())
+    return true;
+
+  return false;
+}
+
+std::vector<OpenMCProblemBase::cellInfo>
+OpenMCProblemBase::gatherCellInfo(const std::map<OpenMCProblemBase::cellInfo, std::vector<unsigned int>> & v) const
+{
+  std::vector<int32_t> ids;
+  std::vector<int32_t> instances;
+  for (const auto & c : v)
+  {
+    auto cell_info = c.first;
+    ids.push_back(cell_info.first);
+    instances.push_back(cell_info.second);
+  }
+
+  _communicator.allgather(ids);
+  _communicator.allgather(instances);
+
+  std::vector<cellInfo> cell_info;
+  for (unsigned int i = 0; i < ids.size(); ++i)
+    cell_info.push_back({ids[i], instances[i]});
+
+  return cell_info;
 }
 
 #endif
