@@ -14,6 +14,5 @@
                   "../dimensional. The user object averages/integrals computed here exactly match."
     prereq = precompile
     required_objects = 'NekRSProblem'
-    skip = 'Need to resolve precompile issues'
   []
 []
