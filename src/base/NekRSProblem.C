@@ -389,12 +389,26 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
   // flux integral, we need to scale the integral back up again to the dimensional form
   // for the sake of comparison.
   const Real scale_squared = _nek_mesh->scaling() * _nek_mesh->scaling();
-  const double nek_flux = nekrs::fluxIntegral(_nek_mesh->boundaryCoupling());
+
+  double nek_flux;
+  double  nek_flux_print_mult = scale_squared * nekrs::solution::referenceFlux();
+  static unsigned int n_normalizations = 0;
+  if (_normalize_moose_flux_by_weak_nek_flux && n_normalizations >= _n_default_flux_normalizations)
+  {
+    nek_flux = -1.0 * nekrs::heatFluxIntegral(*_boundary);
+
+    // heatFluxIntegral computes a dimensional term, so convert to non-dimensional form for
+    // equivalent with other option
+    nek_flux /= (scale_squared * nekrs::solution::referenceFlux());
+  }
+  else
+  {
+    nek_flux = nekrs::fluxIntegral(_nek_mesh->boundaryCoupling());
+    n_normalizations++;
+  }
+
   const double moose_flux = *_flux_integral;
 
-  // For the sake of printing diagnostics to the screen regarding the flux normalization,
-  // we first scale the nek flux by any unit changes and then by the reference flux.
-  const double nek_flux_print_mult = scale_squared * nekrs::solution::referenceFlux();
   double normalized_nek_flux = 0.0;
   bool successful_normalization;
 
@@ -409,11 +423,19 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
   // even if neither value is zero. For instance, if you forgot that the nekRS mesh is in
   // units of centimeters, but you're coupling to an app based in meters, the fluxes will
   // be very different from one another.
+  std::string extra = _normalize_moose_flux_by_weak_nek_flux ?
+    " or that your problem is not a pseudo-transient (which MUST be the case for the "
+    "'normalize_moose_flux_by_weak_nek_flux' option to be valid)." : ".";
   if (moose_flux && (std::abs(nek_flux * nek_flux_print_mult - moose_flux) / moose_flux) > 0.25)
     mooseDoOnce(mooseWarning("nekRS flux differs from MOOSE flux by more than 25\%! "
-                             "This could indicate that your geometries do not line up properly."));
+                             "This could indicate that your geometries do not line up properly", extra));
 
-  if (!successful_normalization)
+
+  // we fully expect the integral of nrs->usrwrk to NOT exactly equal the imposed MOOSE
+  // flux, because we instead re-normalized flux based on the previous time step value of
+  // the actual -k * grad(T) in NekRS. So we dont go in this loop when using this flux
+  // normalization setting.
+  if (!_normalize_moose_flux_by_weak_nek_flux && !successful_normalization)
     mooseError("Flux normalization process failed! nekRS integrated flux: ",
                normalized_nek_flux,
                " MOOSE integrated flux: ",
