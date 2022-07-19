@@ -26,6 +26,7 @@
 #include "TimedPrint.h"
 #include "MooseUtils.h"
 #include "CardinalUtils.h"
+#include "UserErrorChecking.h"
 #include "DisplacedProblem.h"
 
 #include "nekrs.hpp"
@@ -56,6 +57,17 @@ NekRSProblem::validParams()
   params.addParam<PostprocessorName>("max_T",
                                      "If provided, postprocessor used to limit the maximum "
                                      "temperature (in dimensional form) in the nekRS problem");
+
+  params.addParam<bool>("normalize_moose_flux_by_weak_nek_flux", false,
+    "Whether to normalize the incoming MOOSE flux by the boundary heat flux computed by Nek "
+    "in the previous time step (true) or instead by the integral of the spectrally-interpolated "
+    "flux received in Nek. This option should only be used for pseudo-steady calculations as "
+    "a rough approximation to enforce energy conservation when thermal boundary layers in Nek "
+    "are not sufficiently refined to capture the actual total incoming MOOSE flux.");
+  params.addRangeCheckedParam<unsigned int>("n_default_flux_normalizations", 100,
+    "n_default_flux_normalizations > 0",
+    "Number of flux normalizations to perform via the conventional manner (by the spectrally-"
+    "interpolated flux received in Nek) before switching to normalizing by the weak Nek flux");
   return params;
 }
 
@@ -64,6 +76,8 @@ NekRSProblem::NekRSProblem(const InputParameters & params)
     _serialized_solution(NumericVector<Number>::build(_communicator).release()),
     _moving_mesh(getParam<bool>("moving_mesh")),
     _has_heat_source(getParam<bool>("has_heat_source")),
+    _normalize_moose_flux_by_weak_nek_flux(getParam<bool>("normalize_moose_flux_by_weak_nek_flux")),
+    _n_default_flux_normalizations(getParam<unsigned int>("n_default_flux_normalizations")),
     _usrwrk_indices(MultiMooseEnum("flux heat_source x_displacement y_displacement z_displacement unused"))
 {
   // Determine an appropriate default usrwrk indexing; the ordering will always be
@@ -104,6 +118,12 @@ NekRSProblem::NekRSProblem(const InputParameters & params)
   _usrwrk_indices = str_indices;
 
   printScratchSpaceInfo(_usrwrk_indices);
+
+  if (!_boundary)
+    checkUnusedParam(params, "normalize_moose_flux_by_weak_nek_flux", "there is no boundary coupling with Nek");
+
+  if (!_normalize_moose_flux_by_weak_nek_flux)
+    checkUnusedParam(params, "n_default_flux_normalizations", "not normalizing the flux with the weak Nek flux");
 
   // will be implemented soon
   if (_moving_mesh)

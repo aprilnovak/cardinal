@@ -127,6 +127,23 @@ protected:
   const bool & _has_heat_source;
 
   /**
+   * Whether to normalize the incoming MOOSE flux by the spectrally interpolated
+   * flux (default) or instead the weak flux from the previous time step. This can
+   * be set to 'true' in order to more approximately conserve the total power from
+   * MOOSE if thermal boundary layers are not sufficiently refined on the NekRS end.
+   * If you find yourself using this feature, you should always prefer to refine the
+   * NekRS mesh as opposed to hacking conservation with this flag. Please note that
+   * this is an experimental feature.
+   */
+  const bool & _normalize_moose_flux_by_weak_nek_flux;
+
+  /**
+   * Number of typical (normalizing by spectrally-interpolate flux) steps to take
+   * before switching to normalize the Nek flux by the boundary Nek flux.
+   */
+  const unsigned int & _n_default_flux_normalizations;
+
+  /**
    * \brief Total surface-integrated flux coming from the coupled MOOSE app.
    *
    * The mesh used for the MOOSE app may be very different from the mesh used by nekRS.
