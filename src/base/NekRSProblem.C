@@ -157,13 +157,6 @@ NekRSProblem::~NekRSProblem()
   freePointer(_displacement_x);
   freePointer(_displacement_y);
   freePointer(_displacement_z);
-
-  if (_boundary && hasMovingNekMesh())
-  {
-    freePointer(_prev_disp_x);
-    freePointer(_prev_disp_y);
-    freePointer(_prev_disp_z);
-  }
 }
 
 void
