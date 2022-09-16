@@ -670,6 +670,18 @@ Hex20Generator::generate()
       // use the element centroid for finding the closest origin
       const Point centroid = elem->vertex_average();
 
+      // we do allow multiple faces on the sideset of interest as long as only ONE
+      // of those faces has a unit normal with zero component along the 'axis'.
+      auto nodes_on_face = nodesOnFace(s);
+      auto z_face = elem->node_ref(nodes_on_face[0])(_axis);
+      bool on_same_plane = true;
+      for (unsigned int i = 1; i < 4; ++i)
+        if (std::abs(elem->node_ref(nodes_on_face[i])(_axis) - z_face) > 1e-8)
+          on_same_plane = false;
+
+      if (on_same_plane)
+        continue;
+
       if (at_least_one_face_on_boundary)
         mooseError("This mesh generator cannot be applied to elements that have more than "
           "one face on the circular sideset!");
