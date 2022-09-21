@@ -1,0 +1,13 @@
+[Tests]
+  [solid_mesh]
+    type = RunApp
+    input = common_input.i
+    cli_args = 'solid.i num_layers=5 background_intervals=1 ns_per_side=2 --mesh-only'
+    requirement = 'The system shall generate a full-core HTGR mesh for the solid phase.'
+  []
+  [thm]
+    type = RunApp
+    input = thm.i
+    requirement = 'The system shall run a 1-D flow model of an HTGR channel.'
+  []
+[]

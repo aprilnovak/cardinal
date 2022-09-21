@@ -1,7 +1,10 @@
 # Mesh for the solid regions, run with:
-#   cardinal-opt -i solid.i common_input.i --mesh-only
+#
+#   cardinal-opt -i common_input.i solid.i --mesh-only
 
-num_layers = 50 # number of axial layers in the mesh
+num_layers = 50          # number of axial layers in the mesh
+background_intervals = 2 # number of background intervals in each lattice location
+ns_per_side = 4          # number of sectos per side
 
 [Mesh]
   [fuel_pin]
@@ -10,12 +13,12 @@ num_layers = 50 # number of axial layers in the mesh
     polygon_size = ${fparse fuel_to_coolant_distance / 2.0}
     ring_radii =  '0.005499 ${fparse compact_diameter / 2.0}'
     ring_intervals = '1 1'
-    num_sectors_per_side = '4 4 4 4 4 4'
+    num_sectors_per_side = '${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side}'
     ring_block_ids = '2 2'
     ring_block_names = 'compacts compacts'
     background_block_ids = '1'
     background_block_names = 'graphite'
-    background_intervals = 2
+    background_intervals = ${background_intervals}
     quad_center_elements = true
   []
   [coolant_pin]
@@ -24,13 +27,13 @@ num_layers = 50 # number of axial layers in the mesh
     polygon_size = ${fparse fuel_to_coolant_distance / 2.0}
     ring_radii = '${fparse channel_diameter / 2.0}'
     ring_intervals = '2'
-    num_sectors_per_side = '4 4 4 4 4 4'
+    num_sectors_per_side = '${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side}'
     ring_block_ids = '101 101'
     ring_block_names = 'coolant coolant'
     background_block_ids = '1'
     background_block_names = 'graphite'
     interface_boundary_id_shift = 100
-    background_intervals = 2
+    background_intervals = ${background_intervals}
     quad_center_elements = true
   []
   [poison_pin]
@@ -39,12 +42,12 @@ num_layers = 50 # number of axial layers in the mesh
     polygon_size = ${fparse fuel_to_coolant_distance / 2.0}
     ring_radii = '${fparse compact_diameter / 2.0}'
     ring_intervals = '1'
-    num_sectors_per_side = '4 4 4 4 4 4'
+    num_sectors_per_side = '${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side}'
     ring_block_ids = '4'
     ring_block_names = 'poison'
     background_block_ids = '1'
     background_block_names = 'graphite'
-    background_intervals = 2
+    background_intervals = ${background_intervals}
     quad_center_elements = true
   []
   [graphite_pin]
@@ -53,7 +56,7 @@ num_layers = 50 # number of axial layers in the mesh
     polygon_size = ${fparse fuel_to_coolant_distance / 2.0}
     ring_radii = '${fparse compact_diameter / 2.0}'
     ring_intervals = '1'
-    num_sectors_per_side = '4 4 4 4 4 4'
+    num_sectors_per_side = '${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side}'
     ring_block_ids = '1'
     ring_block_names = 'graphite'
     background_block_ids = '1'
@@ -86,7 +89,7 @@ num_layers = 50 # number of axial layers in the mesh
               0 1 0 0 1 0 0 1 0 0 1 0;
                2 0 1 0 0 1 0 0 1 0 2'
 
-    background_intervals = 2
+    background_intervals = ${background_intervals}
     background_block_id = '1'
     background_block_names = 'graphite'
   []
@@ -94,7 +97,7 @@ num_layers = 50 # number of axial layers in the mesh
     type = PolygonConcentricCircleMeshGenerator
     num_sides = 6
     polygon_size = ${fparse fuel_to_coolant_distance / 2.0}
-    num_sectors_per_side = '4 4 4 4 4 4'
+    num_sectors_per_side = '${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side} ${ns_per_side}'
     background_block_ids = '5'
     background_block_names = 'graphite_centers'
     quad_center_elements = false
@@ -159,7 +162,7 @@ num_layers = 50 # number of axial layers in the mesh
   []
 
   [extrude]
-    type = FancyExtruderGenerator
+    type = AdvancedExtruderGenerator
     input = excore
     heights = ${height}
     num_layers = ${num_layers}

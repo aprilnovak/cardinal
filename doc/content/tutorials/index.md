@@ -93,9 +93,18 @@ Think you're ready for the tutorials? Take our [OpenMC Cardinal quiz](https://ww
 
 8. [Coupling of NekRS, OpenMC, and MOOSE](tutorials/coupled.md)
 
-## Miscellaneous
+## Miscellaneous Tutorials
 
 9. [Restarting coupled NekRS and MOOSE simulations](tutorials/restart_nek_moose.md)
 10. [Coupling to arbitrary MOOSE applications](tutorials/other_apps.md)
 11. [Assessing convergence](tutorials/convergence.md)
 12. [What Transfer should I use?](tutorials/transfers.md)
+
+## Models Used in Publications
+
+This section contains an in-exhaustive set of the computational models used in
+various publications. These are not intended to be tutorials,
+but rather to maintain up-to-date versions of models
+used in Cardinal-related publications for reproducibility and posterity.
+
+- [Coupling of OpenMC, MOOSE, and THM for an HTGR core](htgr_full.md)

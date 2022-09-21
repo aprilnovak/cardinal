@@ -325,7 +325,6 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
           // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
           // determine the offset in the nekRS arrays.
           int node_index = _nek_mesh->boundaryNodeIndex(n);
-          auto node_offset = e * _n_vertices_per_surface + node_index;
           auto dof_idx = node_ptr->dof_number(sys_number, _avg_flux_var, 0);
           _flux_face[node_index] =
               (*_serialized_solution)(dof_idx) / nekrs::solution::referenceFlux();
@@ -376,7 +375,6 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
             // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
             // determine the offset in the nekRS arrays.
             int node_index = _nek_mesh->volumeNodeIndex(n);
-            auto node_offset = e * _n_vertices_per_volume + node_index;
             auto dof_idx = node_ptr->dof_number(sys_number, _avg_flux_var, 0);
             _flux_elem[node_index] =
                 (*_serialized_solution)(dof_idx) / nekrs::solution::referenceFlux();
@@ -520,7 +518,6 @@ NekRSProblem::sendVolumeDeformationToNek()
       // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
       // determine the offset in the nekRS arrays.
       int node_index = _nek_mesh->volumeNodeIndex(n);
-      auto node_offset = e * _n_vertices_per_volume + node_index;
       auto dof_idx1 = node_ptr->dof_number(sys_number, _disp_x_var, 0);
       auto dof_idx2 = node_ptr->dof_number(sys_number, _disp_y_var, 0);
       auto dof_idx3 = node_ptr->dof_number(sys_number, _disp_z_var, 0);
@@ -578,7 +575,6 @@ NekRSProblem::sendVolumeHeatSourceToNek()
         // nodes from libMesh, we need to get the GLL index known by nekRS and use it to
         // determine the offset in the nekRS arrays.
         int node_index = _nek_mesh->volumeNodeIndex(n);
-        auto node_offset = e * _n_vertices_per_volume + node_index;
 
         auto dof_idx = node_ptr->dof_number(sys_number, _heat_source_var, 0);
         _source_elem[node_index] =

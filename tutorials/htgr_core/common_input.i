@@ -59,4 +59,4 @@ unit_cell_height = 1.6                   # unit cell height - arbitrarily select
 
 # other settings for generating plots
 
-num_layers_for_plots = 50                # number of layers to average fields over for plotting
+num_layers_for_plots = 5                 # number of layers to average fields over for plotting
