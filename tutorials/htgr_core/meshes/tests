@@ -1,0 +1,8 @@
+[Tests]
+  [solid_mesh]
+    type = RunApp
+    input = solid.i
+    cli_args = 'common_input.i num_layers=1 --mesh-only'
+    requirement = 'The system shall generate a full-core HTGR mesh for the solid phase.'
+  []
+[]
