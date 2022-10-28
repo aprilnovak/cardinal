@@ -236,6 +236,8 @@ protected:
    */
   bool _reuse_source;
 
+  const bool & _set_temperature_on_material;
+
   /**
    * Whether the OpenMC model consists of a single coordinate level; this can
    * in some cases be used for more verbose error messages

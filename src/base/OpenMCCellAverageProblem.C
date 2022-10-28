@@ -36,6 +36,7 @@
 #include "openmc/particle.h"
 #include "openmc/geometry.h"
 #include "openmc/geometry_aux.h"
+#include "openmc/material.h"
 #include "openmc/message_passing.h"
 #include "openmc/random_lcg.h"
 #include "openmc/settings.h"

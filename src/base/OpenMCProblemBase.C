@@ -66,6 +66,11 @@ OpenMCProblemBase::validParams()
                         false,
                         "Whether to take the initial fission source "
                         "for interation n to be the converged source bank from iteration n-1");
+
+  params.addParam<bool>("set_temperature_on_material", false,
+    "Whether to send temperature into OpenMC by adjusting material temperatures (true), "
+    "as opposed to cell temperatures (the default). This only exists as an option because "
+    "OpenMC's multigroup mode changes temperatures according to materials, not cells.");
   return params;
 }
 
@@ -74,6 +79,7 @@ OpenMCProblemBase::OpenMCProblemBase(const InputParameters & params)
     PostprocessorInterface(this),
     _verbose(getParam<bool>("verbose")),
     _reuse_source(getParam<bool>("reuse_source")),
+    _set_temperature_on_material(getParam<bool>("set_temperature_on_material")),
     _single_coord_level(openmc::model::n_coord_levels == 1),
     _fixed_point_iteration(-1),
     _path_output(openmc::settings::path_output),
@@ -314,12 +320,28 @@ void
 OpenMCProblemBase::setCellTemperature(const int32_t & id, const int32_t & instance, const Real & T,
   const cellInfo & cell_info) const
 {
-  int err = openmc_cell_set_temperature(id, T, &instance, false);
+  if (_set_temperature_on_material)
+  {
+    cellInfo filler = {id, instance};
+    int fill_type;
+    std::vector<int32_t> mats = cellFill(filler, fill_type);
 
-  if (err)
-    mooseError("In attempting to set cell " + printCell(cell_info) + " to temperature " +
-               Moose::stringify(T) + " (K), OpenMC reported:\n\n" +
-               std::string(openmc_err_msg));
+    if (mats.size() > 1)
+      mooseError("check this");
+    openmc::model::materials[mats[0]]->set_temperature(T);
+
+    std::cout << mats[0] << " temperature: " <<  openmc::model::materials[mats[0]]->temperature() << std::endl;
+    //int err = openmc_material_set_temperature(materials[instance], T);
+  }
+  else
+  {
+    int err = openmc_cell_set_temperature(id, T, &instance, false);
+
+    if (err)
+      mooseError("In attempting to set cell " + printCell(cell_info) + " to temperature " +
+                 Moose::stringify(T) + " (K), OpenMC reported:\n\n" +
+                 std::string(openmc_err_msg));
+  }
 }
 
 std::vector<int32_t>
