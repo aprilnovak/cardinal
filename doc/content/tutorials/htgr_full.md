@@ -6,24 +6,25 @@ This page contains all the input files used to create the full-core
 A.J. Novak, D. Andrs, P. Shriwise, J. Fang, H. Yuan, D. Shaver, E. Merzari, P.K. Romano, and R.C. Martineau,
 ["Coupled Monte Carlo and Thermal-Fluid Modeling of High Temperature Gas Reactors Using Cardinal"](https://www.sciencedirect.com/science/article/pii/S0306454922003450) 177 (109310) *Annals of Nuclear Energy* (2022)
 
-This model is a 12-bundle HTGR core surrounded by a graphite reflector:
+This model is a 12-bundle HTGR core surrounded by a graphite reflector. The files can be accessed by
+
+```
+cd tutorials/htgr_core
+```
 
 !media htgr_core.png
   id=htgr_core
   caption=Top-down view of the 12-bundle HTGR core geometry, colored by material
-  style=width:60%;margin-left:auto;margin-right:auto
+  style=width:80%;margin-left:auto;margin-right:auto
 
-All input files are located in the `tutorials/htgr_core` directory. For all results,
-please refer to the publication above.
-
-!alert note!
-Note that this model
-is very large, and you may run out of memory attempting to run it unless you
+!alert! note
+This model
+is very large, and you will most likely run out of memory attempting to run it unless you
 split the meshes with MOOSE's [distributed mesh](https://mooseframework.inl.gov/syntax/Mesh/splitting.html)
-features. For the sole purpose of allowing CIVET testing of these input files,
-we have scaled all meshes to have just 5 elements in the axial direction. Our publication
-used 50 layers, so please be sure to adjust this number if starting from these files
-for other analyses.
+features. Even if you decrease the number of layers, based on how we build the
+model in OpenMC (by repeating the same partial-height compact everywhere in the model),
+this may not be enough to help you memory-wise (because you'd be storing *more* TRISO particle surfaces
+in the repeated compact surface).
 !alert-end!
 
 ## Meshes
@@ -41,7 +42,7 @@ This will generate the following solid mesh.
 !media htgr_fullcore.png
   id=htgr_fullcore
   caption=HTGR full-core solid mesh
-  style=width:60%;margin-left:auto;margin-right:auto
+  style=width:80%;margin-left:auto;margin-right:auto
 
 No special syntax is needed to generate the THM mesh, since THM automatically builds
 its own (1-D) mesh based on the component syntax.
@@ -49,8 +50,8 @@ its own (1-D) mesh based on the component syntax.
 ## THM Fluid Model
 
 The THM model consists of a single HTGR flow channel in 1-D. In the solid input file
-shown later in [solid_htgr],
-this model will then be repeated for each of the 1296 coolant channels.
+shown later in [#solid_htgr],
+this model will be repeated for each of the 1296 coolant channels.
 
 !listing tutorials/htgr_core/thm.i
 
@@ -77,7 +78,7 @@ XML files to run OpenMC.
 !media htgr_openmc.png
   id=htgr_openmc
   caption=HTGR OpenMC [!ac](CSG) geometry
-  style=width:60%;margin-left:auto;margin-right:auto
+  style=width:80%;margin-left:auto;margin-right:auto
 
 Then, we structure OpenMC as the main application as follows.
 
