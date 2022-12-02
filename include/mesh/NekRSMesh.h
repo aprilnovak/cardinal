@@ -362,6 +362,12 @@ protected:
   /// Number of elements in MooseMesh, which depends on whether building a boundary/volume mesh
   int _n_elems;
 
+  /**
+   * Number of MOOSE elements corresponding to each NekRS element, which depends on whether
+   * building a boundary/volume mesh
+   */
+  int _n_moose_per_nek;
+
   /// Function returning the processor id which should own each element
   int (NekRSMesh::*_elem_processor_id)(const int elem_id);
 

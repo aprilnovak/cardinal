@@ -418,6 +418,11 @@ NekRSMesh::storeBoundaryCoupling()
   MPI_Allgather(
       &Nfaces, 1, MPI_INT, &_boundary_coupling.counts[0], 1, MPI_INT, platform->comm.mpiComm);
 
+  int N_mirror_faces = Nfaces * _n_build_per_surface_elem;
+  _boundary_coupling.mirror_counts.resize(nekrs::commSize());
+  MPI_Allgather(
+      &N_mirror_faces, 1, MPI_INT, &_boundary_coupling.mirror_counts[0], 1, MPI_INT, platform->comm.mpiComm);
+
   // compute the counts and displacements for face-based data exchange
   int * recvCounts = (int *)calloc(nekrs::commSize(), sizeof(int));
   int * displacement = (int *)calloc(nekrs::commSize(), sizeof(int));
@@ -596,33 +601,36 @@ NekRSMesh::addElems()
 
   for (int e = 0; e < _n_elems; e++)
   {
-    auto elem = (this->*_new_elem)();
-    elem->set_id() = e;
-    elem->processor_id() = (this->*_elem_processor_id)(e);
-    _mesh->add_elem(elem);
-
-    // add one point for each vertex of the face element
-    for (int n = 0; n < _n_vertices_per_elem; n++)
+    for (int build = 0; build < _n_moose_per_nek; ++build)
     {
-      int node = (*_node_index)[n];
+      auto elem = (this->*_new_elem)();
+      elem->set_id() = e * _n_moose_per_nek + build;
+      elem->processor_id() = (this->*_elem_processor_id)(e);
+      _mesh->add_elem(elem);
 
-      auto node_offset = e * _n_vertices_per_elem + node;
-      Point p(_x[node_offset], _y[node_offset], _z[node_offset]);
-      p *= _scaling;
-
-      auto node_ptr = _mesh->add_point(p);
-      elem->set_node(n) = node_ptr;
-    }
-
-    // add sideset IDs to the mesh if we have volume coupling (this only adds the
-    // sidesets associated with the coupling)
-    if (_volume)
-    {
-      for (int f = 0; f < nekrs::mesh::Nfaces(); ++f)
+      // add one point for each vertex of the face element
+      for (int n = 0; n < _n_vertices_per_elem; n++)
       {
-        int b_id = boundary_id(e, f);
-        if (b_id != -1 /* NekRS's setting to indicate not on a sideset */)
-          boundary_info.add_side(elem, _side_index[f], b_id);
+        int node = (*_node_index)[n];
+
+        auto node_offset = (e * _n_moose_per_nek + build) * _n_vertices_per_elem + node;
+        Point p(_x[node_offset], _y[node_offset], _z[node_offset]);
+        p *= _scaling;
+
+        auto node_ptr = _mesh->add_point(p);
+        elem->set_node(n) = node_ptr;
+      }
+
+      // add sideset IDs to the mesh if we have volume coupling (this only adds the
+      // sidesets associated with the coupling)
+      if (_volume)
+      {
+        for (int f = 0; f < nekrs::mesh::Nfaces(); ++f)
+        {
+          int b_id = boundary_id(e, f);
+          if (b_id != -1 /* NekRS's setting to indicate not on a sideset */)
+            boundary_info.add_side(elem, _side_index[f], b_id);
+        }
       }
     }
   }
@@ -680,12 +688,8 @@ NekRSMesh::faceVertices()
       {
         for (int v = 0; v < Nfp_mirror; ++v, ++c)
         {
-          int id;
-
-          if (_order == 0)
-            id = mesh->vmapM[offset + corner_indices[build][v]];
-          else
-            id = mesh->vmapM[offset + v];
+          int vertex_offset = _order == 0 ? corner_indices[build][v] : v;
+          int id = mesh->vmapM[offset + vertex_offset];
 
           xtmp[c] = mesh->x[id];
           ytmp[c] = mesh->y[id];
@@ -695,10 +699,9 @@ NekRSMesh::faceVertices()
     }
   }
 
-  // TODO: update
-  nekrs::allgatherv(_boundary_coupling.counts, xtmp, x, Nfp_mirror);
-  nekrs::allgatherv(_boundary_coupling.counts, ytmp, y, Nfp_mirror);
-  nekrs::allgatherv(_boundary_coupling.counts, ztmp, z, Nfp_mirror);
+  nekrs::allgatherv(_boundary_coupling.mirror_counts, xtmp, x, Nfp_mirror);
+  nekrs::allgatherv(_boundary_coupling.mirror_counts, ytmp, y, Nfp_mirror);
+  nekrs::allgatherv(_boundary_coupling.mirror_counts, ztmp, z, Nfp_mirror);
 
   for (int i = 0; i < n_vertices_in_mirror; ++i)
   {
@@ -758,6 +761,7 @@ NekRSMesh::extractSurfaceMesh()
   _new_elem = &NekRSMesh::boundaryElem;
   _n_elems = _n_surface_elems;
   _n_vertices_per_elem = _n_vertices_per_surface;
+  _n_moose_per_nek = _n_build_per_surface_elem;
   _node_index = &_bnd_node_index;
   _elem_processor_id = &NekRSMesh::boundaryElemProcessorID;
 }
@@ -773,6 +777,7 @@ NekRSMesh::extractVolumeMesh()
   _new_elem = &NekRSMesh::volumeElem;
   _n_elems = _n_volume_elems;
   _n_vertices_per_elem = _n_vertices_per_volume;
+  _n_moose_per_nek = 1;
   _node_index = &_vol_node_index;
   _elem_processor_id = &NekRSMesh::volumeElemProcessorID;
 }
