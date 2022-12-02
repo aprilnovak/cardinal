@@ -164,6 +164,7 @@ void
 NekRSMesh::initializeMeshParams()
 {
   _nek_polynomial_order = nekrs::mesh::polynomialOrder();
+  _n_build_per_surface_elem = _exact ? _nek_polynomial_order * _nek_polynomial_order : 1;
 
   /**
    * The libMesh face numbering for a 3-D hexagonal element is
@@ -630,9 +631,10 @@ NekRSMesh::addElems()
 void
 NekRSMesh::faceVertices()
 {
-  double * x = (double *)malloc(_n_surface_elems * _n_vertices_per_surface * sizeof(double));
-  double * y = (double *)malloc(_n_surface_elems * _n_vertices_per_surface * sizeof(double));
-  double * z = (double *)malloc(_n_surface_elems * _n_vertices_per_surface * sizeof(double));
+  int n_vertices_in_mirror = _n_build_per_surface_elem * _n_surface_elems * _n_vertices_per_surface;
+  double * x = (double *) malloc(n_vertices_in_mirror * sizeof(double));
+  double * y = (double *) malloc(n_vertices_in_mirror * sizeof(double));
+  double * z = (double *) malloc(n_vertices_in_mirror * sizeof(double));
 
   nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
   int rank = nekrs::commRank();
@@ -660,9 +662,10 @@ NekRSMesh::faceVertices()
   }
 
   // Allocate space for the coordinates that are on this rank
-  double * xtmp = (double *)malloc(_boundary_coupling.n_faces * Nfp_mirror * sizeof(double));
-  double * ytmp = (double *)malloc(_boundary_coupling.n_faces * Nfp_mirror * sizeof(double));
-  double * ztmp = (double *)malloc(_boundary_coupling.n_faces * Nfp_mirror * sizeof(double));
+  int n_vertices_on_rank = _n_build_per_surface_elem * _boundary_coupling.n_faces * Nfp_mirror;
+  double * xtmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
+  double * ytmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
+  double * ztmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
 
   int c = 0;
   for (int k = 0; k < _boundary_coupling.total_n_faces; ++k)
@@ -673,27 +676,31 @@ NekRSMesh::faceVertices()
       int j = _boundary_coupling.face[k];
       int offset = i * mesh->Nfaces * mesh->Nfp + j * mesh->Nfp;
 
-      for (int v = 0; v < Nfp_mirror; ++v, ++c)
+      for (int build = 0; build < _n_build_per_surface_elem; ++build)
       {
-        int id;
+        for (int v = 0; v < Nfp_mirror; ++v, ++c)
+        {
+          int id;
 
-        if (_order == 0)
-          id = mesh->vmapM[offset + corner_indices[0][v]];
-        else
-          id = mesh->vmapM[offset + v];
+          if (_order == 0)
+            id = mesh->vmapM[offset + corner_indices[build][v]];
+          else
+            id = mesh->vmapM[offset + v];
 
-        xtmp[c] = mesh->x[id];
-        ytmp[c] = mesh->y[id];
-        ztmp[c] = mesh->z[id];
+          xtmp[c] = mesh->x[id];
+          ytmp[c] = mesh->y[id];
+          ztmp[c] = mesh->z[id];
+        }
       }
     }
   }
 
+  // TODO: update
   nekrs::allgatherv(_boundary_coupling.counts, xtmp, x, Nfp_mirror);
   nekrs::allgatherv(_boundary_coupling.counts, ytmp, y, Nfp_mirror);
   nekrs::allgatherv(_boundary_coupling.counts, ztmp, z, Nfp_mirror);
 
-  for (int i = 0; i < _n_surface_elems * _n_vertices_per_surface; ++i)
+  for (int i = 0; i < n_vertices_in_mirror; ++i)
   {
     _x.push_back(x[i]);
     _y.push_back(y[i]);
