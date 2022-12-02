@@ -21,8 +21,6 @@
   exodus = true
 []
 
-# The points provided to these postprocessors are the centroids of the elements that
-# we wish to print the node coordinates for.
 [Postprocessors]
   [num_elems]
     type = NekMeshInfoPostprocessor
