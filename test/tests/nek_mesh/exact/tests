@@ -1,0 +1,10 @@
+[Tests]
+  [second]
+    type = RunException
+    input = nek.i
+    cli_args = 'Mesh/order=SECOND'
+    expect_err = "When building an exact mesh mirror, the 'order' must be FIRST!"
+    requirement = "The system shall error if trying to build an exact mesh mirror that is second order."
+    required_objects = 'NekRSProblem'
+  []
+[]

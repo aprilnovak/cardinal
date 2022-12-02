@@ -36,6 +36,7 @@ NekRSMesh::validParams()
   params.addParam<std::vector<int>>("boundary",
                                     "Boundary ID(s) through which nekRS will be coupled to MOOSE");
   params.addParam<bool>("volume", false, "Whether the nekRS volume will be coupled to MOOSE");
+  params.addParam<bool>("exact", false, "Whether the mesh mirror is an exact replica of the NekRS mesh");
   params.addParam<MooseEnum>(
       "order", getNekOrderEnum(), "Order of the mesh interpolation between nekRS and MOOSE");
   params.addRangeCheckedParam<Real>(
@@ -50,10 +51,14 @@ NekRSMesh::NekRSMesh(const InputParameters & parameters)
     _volume(getParam<bool>("volume")),
     _boundary(isParamValid("boundary") ? &getParam<std::vector<int>>("boundary") : nullptr),
     _order(getParam<MooseEnum>("order").getEnum<order::NekOrderEnum>()),
+    _exact(getParam<bool>("exact")),
     _scaling(getParam<Real>("scaling")),
     _n_surface_elems(0),
     _n_volume_elems(0)
 {
+  if (_exact && _order != order::first)
+    mooseError("When building an exact mesh mirror, the 'order' must be FIRST!");
+
   if (!_boundary && !_volume)
     mooseError("This mesh requires at least 'volume = true' or a list of IDs in 'boundary'!");
 

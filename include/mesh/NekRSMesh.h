@@ -310,6 +310,18 @@ protected:
    **/
   const order::NekOrderEnum _order;
 
+  /**
+   * Whether the NekRS mesh mirror is an exact replica of the NekRS mesh.
+   * If false (the default), then we build one MOOSE element for each NekRS element,
+   * and the order of the MOOSE element is selected with 'order'. If true,
+   * then we instead build one MOOSE element for each "first-order element"
+   * within each NekRS high-order spectral element. In other words, if the NekRS
+   * mesh is polynomial order 7, then we would build 7^2 MOOSE surface elements
+   * for each NekRS surface element, and 7^3 MOOSE volume elements for each NekRS
+   * volume element. The order of these elements will be first order.
+   */
+  const bool & _exact;
+
   /// Number of vertices per surface
   int _n_vertices_per_surface;
 
