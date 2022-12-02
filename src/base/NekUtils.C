@@ -29,16 +29,35 @@ cornerGLLIndices(const int & n, const bool exact)
   if (!exact)
   {
     corner_indices.resize(1);
-    corner_indices[0] = {0, n, (n + 1) * n, (n + 1) * (n + 1) - 1};
+    int back_corner = (n + 1) * (n + 1) * n;
+    corner_indices[0] = {0,
+                         n,
+                         (n + 1) * n,
+                         (n + 1) * (n + 1) - 1,
+                         back_corner,
+                         back_corner + n,
+                         back_corner + (n + 1) * n,
+                         back_corner + (n + 1) * (n + 1) - 1};
   }
   else
   {
-    for (int row = 0; row < n; ++row)
+    for (int depth = 0; depth < n; ++depth)
     {
-      for (int col = 0; col < n; ++col)
+      for (int row = 0; row < n; ++row)
       {
-        int start = row * (n + 1) + col;
-        corner_indices.push_back({start, start + 1, start + n + 1, start + n + 2});
+        for (int col = 0; col < n; ++col)
+        {
+          int start = row * (n + 1) + col + depth * (n + 1) * (n + 1);
+          int back_corner = (n + 1) * (n + 1) + start;
+          corner_indices.push_back({start,
+                                    start + 1,
+                                    start + n + 1,
+                                    start + n + 2,
+                                    back_corner,
+                                    back_corner + 1,
+                                    back_corner + n + 1,
+                                    back_corner + n + 2});
+        }
       }
     }
   }
