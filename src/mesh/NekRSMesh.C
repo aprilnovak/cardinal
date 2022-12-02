@@ -639,7 +639,7 @@ NekRSMesh::faceVertices()
 
   mesh_t * mesh;
   int Nfp_mirror;
-  auto corner_indices = nekrs::cornerGLLIndices(nekrs::entireMesh()->N);
+  auto corner_indices = nekrs::cornerGLLIndices(nekrs::entireMesh()->N, _exact);
 
   if (_order == 0)
   {
@@ -678,7 +678,7 @@ NekRSMesh::faceVertices()
         int id;
 
         if (_order == 0)
-          id = mesh->vmapM[offset + corner_indices[v]];
+          id = mesh->vmapM[offset + corner_indices[0][v]];
         else
           id = mesh->vmapM[offset + v];
 

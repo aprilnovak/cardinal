@@ -24,6 +24,7 @@
 #include "NekBoundaryCoupling.h"
 #include "NekVolumeCoupling.h"
 #include "NekInterface.h"
+#include "NekUtils.h"
 
 /**
  * Representation of a nekRS surface mesh as a native MooseMesh. This is
