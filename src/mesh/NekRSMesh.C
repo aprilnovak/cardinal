@@ -165,6 +165,7 @@ NekRSMesh::initializeMeshParams()
 {
   _nek_polynomial_order = nekrs::mesh::polynomialOrder();
   _n_build_per_surface_elem = _exact ? _nek_polynomial_order * _nek_polynomial_order : 1;
+  _n_build_per_volume_elem = _exact ? std::pow(_nek_polynomial_order, 3) : 1;
 
   /**
    * The libMesh face numbering for a 3-D hexagonal element is
@@ -777,7 +778,7 @@ NekRSMesh::extractVolumeMesh()
   _new_elem = &NekRSMesh::volumeElem;
   _n_elems = _n_volume_elems;
   _n_vertices_per_elem = _n_vertices_per_volume;
-  _n_moose_per_nek = 1;
+  _n_moose_per_nek = _n_build_per_volume_elem;
   _node_index = &_vol_node_index;
   _elem_processor_id = &NekRSMesh::volumeElemProcessorID;
 }

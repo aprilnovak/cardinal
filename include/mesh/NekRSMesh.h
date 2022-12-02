@@ -356,8 +356,14 @@ protected:
   /// Number of MOOSE surface elements to build per NekRS surface element
   int _n_build_per_surface_elem;
 
-  /// Number of volume elements in MooseMesh
+  /**
+   * Number of NekRS volume elements in MooseMesh. The total number of volume
+   * elements in the mesh mirror is _n_volume_elems * _n_build_per_volume_elem.
+   */
   int _n_volume_elems;
+
+  /// Number of MOOSE volume elements to build per NekRS volume element
+  int _n_build_per_volume_elem;
 
   /// Number of elements in MooseMesh, which depends on whether building a boundary/volume mesh
   int _n_elems;
