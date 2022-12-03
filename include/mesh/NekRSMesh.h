@@ -59,6 +59,24 @@ public:
   virtual std::unique_ptr<MooseMesh> safeClone() const override;
 
   /**
+   * NekRS mesh polynomial order
+   * @return NekRS polynomial order
+   */
+  int nekPolynomialOrder() const { return _nek_polynomial_order; }
+
+  /**
+   * Number of elements to build for each NekRS volume element
+   * @return number of MOOSE elements per NekRS volume element
+   */
+  int nBuildPerVolumeElem() const { return _n_build_per_volume_elem; }
+
+  /**
+   * Number of elements to build for each NekRS surface element
+   * @return number of MOOSE elements per NekRS surface element
+   */
+  int nBuildPerSurfaceElem() const { return _n_build_per_surface_elem; }
+
+  /**
    * Get the initial mesh x coordinates
    * @return initial mesh x coordinates
    */
@@ -252,6 +270,12 @@ public:
    * @return number of faces on a coupling boundary
    */
   int facesOnBoundary(const int elem_id) const;
+
+  /**
+   * Whether the mesh mirror is an exact representation of the NekRS mesh
+   * @param return whether mesh mirror is exact
+   */
+  bool exactMirror() const { return _exact; }
 
 protected:
   /// Store the rank-local element and rank ownership for volume coupling
