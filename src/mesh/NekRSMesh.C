@@ -609,6 +609,7 @@ void
 NekRSMesh::addElems()
 {
   BoundaryInfo & boundary_info = _mesh->get_boundary_info();
+  auto nested_elems_on_face = nekrs::nestedElementsOnFace(_nek_polynomial_order);
 
   for (int e = 0; e < _n_elems; e++)
   {
@@ -640,7 +641,16 @@ NekRSMesh::addElems()
         {
           int b_id = boundary_id(e, f);
           if (b_id != -1 /* NekRS's setting to indicate not on a sideset */)
+          {
+            if (_exact)
+            {
+              auto faces = nested_elems_on_face[f];
+              if (!std::count(faces.begin(), faces.end(), build))
+                continue;
+            }
+
             boundary_info.add_side(elem, _side_index[f], b_id);
+          }
         }
       }
     }
