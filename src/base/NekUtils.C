@@ -65,4 +65,33 @@ cornerGLLIndices(const int & n, const bool exact)
   return corner_indices;
 }
 
+std::vector<std::vector<int>>
+nestedElementsOnFace(const int & n)
+{
+  std::vector<std::vector<int>> e;
+  e.resize(6);
+
+  // face 0 and face 5
+  int n_per_face = n * n;
+  for (int i = 0; i < n_per_face; ++i)
+  {
+    e[0].push_back(i);
+    e[5].push_back(i + n_per_face * (n - 1));
+  }
+
+  // faces 1 through 4
+  for (int row = 0; row < n; ++row)
+  {
+    for (int col = 0; col < n; ++col)
+    {
+      e[1].push_back(n_per_face * row + col);
+      e[2].push_back(row * n * n + col * n + n - 1);
+      e[3].push_back(row * n * n + col + n * (n - 1));
+      e[4].push_back(row * n * n + col * n);
+    }
+  }
+
+  return e;
+}
+
 } // end namespace nekrs

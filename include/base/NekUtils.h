@@ -24,6 +24,13 @@ namespace nekrs
 {
 
 /**
+ * Get all the element IDs that touch each face of a parent NekRS element
+ * @param[in] n NekRS polynomial order
+ * @return nested element IDs, indexed by face
+ */
+std::vector<std::vector<int>> nestedElementsOnFace(const int & n);
+
+/**
  * \brief Get the corner indices for the GLL points in a NekRS element on a single face
  *
  * Support the NekRS mesh face has nodes

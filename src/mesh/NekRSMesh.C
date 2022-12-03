@@ -475,6 +475,16 @@ NekRSMesh::storeVolumeCoupling()
                 MPI_INT,
                 platform->comm.mpiComm);
 
+  _volume_coupling.mirror_counts.resize(nekrs::commSize());
+  int N_mirror_elems = _volume_coupling.n_elems * _n_build_per_volume_elem;
+  MPI_Allgather(&N_mirror_elems,
+                1,
+                MPI_INT,
+                &_volume_coupling.mirror_counts[0],
+                1,
+                MPI_INT,
+                platform->comm.mpiComm);
+
   // Save information regarding the volume mesh coupling in terms of the process-local
   // element IDs and process ownership; the 'tmp' arrays hold the rank-local data,
   // while the other arrays hold the result of the allgatherv
@@ -724,22 +734,68 @@ NekRSMesh::volumeVertices()
 {
   // nekRS has already performed a global operation such that all processes know the
   // toal number of volume elements.
-  double * x = (double *)malloc(_n_volume_elems * _n_vertices_per_volume * sizeof(double));
-  double * y = (double *)malloc(_n_volume_elems * _n_vertices_per_volume * sizeof(double));
-  double * z = (double *)malloc(_n_volume_elems * _n_vertices_per_volume * sizeof(double));
+  int n_vertices_in_mirror = _n_build_per_volume_elem * _n_volume_elems * _n_vertices_per_volume;
+  double * x = (double *) malloc(n_vertices_in_mirror * sizeof(double));
+  double * y = (double *) malloc(n_vertices_in_mirror * sizeof(double));
+  double * z = (double *) malloc(n_vertices_in_mirror * sizeof(double));
 
   nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
+  int rank = nekrs::commRank();
 
-  // Create a duplicate of the solution mesh, but with the desired order of the mesh interpolation.
-  // Then we can just read the coordinates of the GLL points to find the libMesh node positions.
-  mesh_t * mesh = createMesh(
-      platform->comm.mpiComm, _order + 1, 1 /* dummy, not used */, nrs->cht, *(nrs->kernelInfo));
+  mesh_t * mesh;
+  int Np_mirror;
+  auto corner_indices = nekrs::cornerGLLIndices(nekrs::entireMesh()->N, _exact);
 
-  nekrs::allgatherv(_volume_coupling.counts, mesh->x, x, mesh->Np);
-  nekrs::allgatherv(_volume_coupling.counts, mesh->y, y, mesh->Np);
-  nekrs::allgatherv(_volume_coupling.counts, mesh->z, z, mesh->Np);
+  if (_order == 0)
+  {
+    // For a first-order mesh mirror, we can take a shortcut and instead just fetch the
+    // corner nodes. In this case, 'mesh' is no longer a custom-build mesh copy, but the
+    // actual mesh for computation
+    mesh = _nek_internal_mesh;
+    Np_mirror = 8;
+  }
+  else
+  {
+    // Create a duplicate of the solution mesh, but with the desired order of the mesh interpolation.
+    // Then we can just read the coordinates of the GLL points to find the libMesh node positions.
+    mesh = createMesh(platform->comm.mpiComm, _order + 1, 1 /* dummy */, nrs->cht, *(nrs->kernelInfo));
+    Np_mirror = mesh->Np;
+  }
 
-  for (int i = 0; i < _n_volume_elems * _n_vertices_per_volume; ++i)
+  // Allocate space for the coordinates that are on this rank
+  int n_vertices_on_rank = _n_build_per_volume_elem * _volume_coupling.n_elems * Np_mirror;
+  double * xtmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
+  double * ytmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
+  double * ztmp = (double *) malloc(n_vertices_on_rank * sizeof(double));
+
+  int c = 0;
+  for (int k = 0; k < _volume_coupling.total_n_elems; ++k)
+  {
+    if (_volume_coupling.process[k] == rank)
+    {
+      int i = _volume_coupling.element[k];
+      int offset = i * mesh->Np;
+
+      for (int build = 0; build < _n_build_per_volume_elem; ++build)
+      {
+        for (int v = 0; v < Np_mirror; ++v, ++c)
+        {
+          int vertex_offset = _order == 0 ? corner_indices[build][v] : v;
+          int id = offset + vertex_offset;
+
+          xtmp[c] = mesh->x[id];
+          ytmp[c] = mesh->y[id];
+          ztmp[c] = mesh->z[id];
+        }
+      }
+    }
+  }
+
+  nekrs::allgatherv(_volume_coupling.mirror_counts, xtmp, x, Np_mirror);
+  nekrs::allgatherv(_volume_coupling.mirror_counts, ytmp, y, Np_mirror);
+  nekrs::allgatherv(_volume_coupling.mirror_counts, ztmp, z, Np_mirror);
+
+  for (int i = 0; i < n_vertices_in_mirror; ++i)
   {
     _x.push_back(x[i]);
     _y.push_back(y[i]);
@@ -749,6 +805,9 @@ NekRSMesh::volumeVertices()
   freePointer(x);
   freePointer(y);
   freePointer(z);
+  freePointer(xtmp);
+  freePointer(ytmp);
+  freePointer(ztmp);
 }
 
 void

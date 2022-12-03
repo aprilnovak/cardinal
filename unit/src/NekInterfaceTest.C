@@ -406,3 +406,118 @@ TEST_F(NekInterfaceTest, corner_gll)
   EXPECT_EQ(third[26][6], 62);
   EXPECT_EQ(third[26][7], 63);
 }
+
+TEST_F(NekInterfaceTest, nested_elems)
+{
+  int n = 1;
+  auto first = nekrs::nestedElementsOnFace(n);
+  for (const auto & s : first)
+    EXPECT_EQ(s.size(), 1);
+
+  EXPECT_EQ(first[0][0], 0);
+  EXPECT_EQ(first[1][0], 0);
+  EXPECT_EQ(first[2][0], 0);
+  EXPECT_EQ(first[3][0], 0);
+  EXPECT_EQ(first[4][0], 0);
+  EXPECT_EQ(first[5][0], 0);
+
+  n = 2;
+  auto second = nekrs::nestedElementsOnFace(n);
+  for (const auto & s : second)
+    EXPECT_EQ(s.size(), 4);
+
+  EXPECT_EQ(second[0][0], 0);
+  EXPECT_EQ(second[0][1], 1);
+  EXPECT_EQ(second[0][2], 2);
+  EXPECT_EQ(second[0][3], 3);
+
+  EXPECT_EQ(second[1][0], 0);
+  EXPECT_EQ(second[1][1], 1);
+  EXPECT_EQ(second[1][2], 4);
+  EXPECT_EQ(second[1][3], 5);
+
+  EXPECT_EQ(second[2][0], 1);
+  EXPECT_EQ(second[2][1], 3);
+  EXPECT_EQ(second[2][2], 5);
+  EXPECT_EQ(second[2][3], 7);
+
+  EXPECT_EQ(second[3][0], 2);
+  EXPECT_EQ(second[3][1], 3);
+  EXPECT_EQ(second[3][2], 6);
+  EXPECT_EQ(second[3][3], 7);
+
+  EXPECT_EQ(second[4][0], 0);
+  EXPECT_EQ(second[4][1], 2);
+  EXPECT_EQ(second[4][2], 4);
+  EXPECT_EQ(second[4][3], 6);
+
+  EXPECT_EQ(second[5][0], 4);
+  EXPECT_EQ(second[5][1], 5);
+  EXPECT_EQ(second[5][2], 6);
+  EXPECT_EQ(second[5][3], 7);
+
+  n = 3;
+  auto third = nekrs::nestedElementsOnFace(n);
+  for (const auto & s : third)
+    EXPECT_EQ(s.size(), 9);
+
+  EXPECT_EQ(third[0][0], 0);
+  EXPECT_EQ(third[0][1], 1);
+  EXPECT_EQ(third[0][2], 2);
+  EXPECT_EQ(third[0][3], 3);
+  EXPECT_EQ(third[0][4], 4);
+  EXPECT_EQ(third[0][5], 5);
+  EXPECT_EQ(third[0][6], 6);
+  EXPECT_EQ(third[0][7], 7);
+  EXPECT_EQ(third[0][8], 8);
+
+  EXPECT_EQ(third[1][0], 0);
+  EXPECT_EQ(third[1][1], 1);
+  EXPECT_EQ(third[1][2], 2);
+  EXPECT_EQ(third[1][3], 9);
+  EXPECT_EQ(third[1][4], 10);
+  EXPECT_EQ(third[1][5], 11);
+  EXPECT_EQ(third[1][6], 18);
+  EXPECT_EQ(third[1][7], 19);
+  EXPECT_EQ(third[1][8], 20);
+
+  EXPECT_EQ(third[2][0], 2);
+  EXPECT_EQ(third[2][1], 5);
+  EXPECT_EQ(third[2][2], 8);
+  EXPECT_EQ(third[2][3], 11);
+  EXPECT_EQ(third[2][4], 14);
+  EXPECT_EQ(third[2][5], 17);
+  EXPECT_EQ(third[2][6], 20);
+  EXPECT_EQ(third[2][7], 23);
+  EXPECT_EQ(third[2][8], 26);
+
+  EXPECT_EQ(third[3][0], 6);
+  EXPECT_EQ(third[3][1], 7);
+  EXPECT_EQ(third[3][2], 8);
+  EXPECT_EQ(third[3][3], 15);
+  EXPECT_EQ(third[3][4], 16);
+  EXPECT_EQ(third[3][5], 17);
+  EXPECT_EQ(third[3][6], 24);
+  EXPECT_EQ(third[3][7], 25);
+  EXPECT_EQ(third[3][8], 26);
+
+  EXPECT_EQ(third[4][0], 0);
+  EXPECT_EQ(third[4][1], 3);
+  EXPECT_EQ(third[4][2], 6);
+  EXPECT_EQ(third[4][3], 9);
+  EXPECT_EQ(third[4][4], 12);
+  EXPECT_EQ(third[4][5], 15);
+  EXPECT_EQ(third[4][6], 18);
+  EXPECT_EQ(third[4][7], 21);
+  EXPECT_EQ(third[4][8], 24);
+
+  EXPECT_EQ(third[5][0], 18);
+  EXPECT_EQ(third[5][1], 19);
+  EXPECT_EQ(third[5][2], 20);
+  EXPECT_EQ(third[5][3], 21);
+  EXPECT_EQ(third[5][4], 22);
+  EXPECT_EQ(third[5][5], 23);
+  EXPECT_EQ(third[5][6], 24);
+  EXPECT_EQ(third[5][7], 25);
+  EXPECT_EQ(third[5][8], 26);
+}
