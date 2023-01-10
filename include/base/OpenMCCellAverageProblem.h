@@ -27,6 +27,10 @@
 #include "CardinalEnums.h"
 #include "SymmetryPointGenerator.h"
 
+#ifdef ENABLE_DAGMC
+#include "MoabUserObject.h"
+#endif
+
 /**
  * Mapping of OpenMC to a collection of MOOSE elements, with temperature feedback
  * on solid cells and both temperature and density feedback on fluid cells. The
@@ -1064,6 +1068,14 @@ protected:
 
   /// Number of none elements in each mapped OpenMC cell (global)
   std::map<cellInfo, int> _n_none;
+
+#ifdef ENABLE_DAGMC
+  /**
+   * Optional user object to skin the DAGMC geometry and regenerate isosurfaces
+   * to reflect temperature feedback.
+   */
+  MoabUserObject * _moab_uo = nullptr;
+#endif
 
   /// Conversion rate from eV to Joule
   static constexpr Real EV_TO_JOULE = 1.6022e-19;
