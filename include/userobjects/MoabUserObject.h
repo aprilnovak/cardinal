@@ -8,13 +8,6 @@
 #include "moab/GeomTopoTool.hpp"
 #include "MBTagConventions.hpp"
 
-#include "libmesh/elem.h"
-#include "libmesh/enum_io_package.h"
-#include "libmesh/enum_order.h"
-#include "libmesh/enum_fe_family.h"
-#include "libmesh/equation_systems.h"
-#include "libmesh/system.h"
-#include "libmesh/mesh_tools.h"
 #include "libmesh/mesh_function.h"
 
 /// Convenience struct

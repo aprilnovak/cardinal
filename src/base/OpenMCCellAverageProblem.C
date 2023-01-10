@@ -227,6 +227,11 @@ OpenMCCellAverageProblem::validParams()
       "symmetry_angle",
       "symmetry_angle > 0 & symmetry_angle <= 180",
       "Angle (degrees) from symmetry plane for which OpenMC model is symmetric");
+
+  params.addParam<UserObjectName>("skinning_user_object",
+      "If using a DAGMC geometry, an optional user object to skin the DAGMC surfaces "
+      "according to contours in temperature/density in order to adaptively capture the "
+      "feedback from MOOSE.");
   return params;
 }
 
@@ -511,6 +516,15 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
         mooseError("Unhandled OutputEnum in OpenMCCellAverageProblem!");
     }
   }
+
+#ifdef ENABLE_DAGMC
+  if (isParamValid("skinning_user_object"))
+    _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
+
+  // TODO: throw a warning/error if the geometry does not contain any DAGMC cells?
+#else
+  checkUnusedParam(params, "skinning_user_object", "DAGMC is disabled");
+#endif
 
   setupProblem();
 

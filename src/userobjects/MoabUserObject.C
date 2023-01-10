@@ -23,6 +23,15 @@
 #include "ADOpenMCDensity.h"
 #include "DisplacedProblem.h"
 
+#include "libmesh/elem.h"
+#include "libmesh/enum_io_package.h"
+#include "libmesh/enum_order.h"
+#include "libmesh/enum_fe_family.h"
+#include "libmesh/equation_systems.h"
+#include "libmesh/system.h"
+#include "libmesh/mesh_tools.h"
+
+
 registerMooseObject("CardinalApp", MoabUserObject);
 
 InputParameters
