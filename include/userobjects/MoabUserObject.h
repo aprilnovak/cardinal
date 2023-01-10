@@ -1,24 +1,21 @@
 #pragma once
 
-// MOOSE includes
 #include "UserObject.h"
 #include "MaterialBase.h"
 
-// MOAB includes
 #include "moab/Core.hpp"
 #include "moab/Skinner.hpp"
 #include "moab/GeomTopoTool.hpp"
 #include "MBTagConventions.hpp"
 
-// Libmesh includes
-#include <libmesh/elem.h>
-#include <libmesh/enum_io_package.h>
-#include <libmesh/enum_order.h>
-#include <libmesh/enum_fe_family.h>
-#include <libmesh/equation_systems.h>
-#include <libmesh/system.h>
-#include <libmesh/mesh_tools.h>
-#include <libmesh/mesh_function.h>
+#include "libmesh/elem.h"
+#include "libmesh/enum_io_package.h"
+#include "libmesh/enum_order.h"
+#include "libmesh/enum_fe_family.h"
+#include "libmesh/equation_systems.h"
+#include "libmesh/system.h"
+#include "libmesh/mesh_tools.h"
+#include "libmesh/mesh_function.h"
 
 /// Convenience struct
 struct MOABMaterialProperties{
@@ -56,17 +53,7 @@ class MoabUserObject : public UserObject
   /// Override MOOSE virtual method to do nothing
   virtual void threadJoin(const UserObject & /*uo*/){};
 
-  /// Pass in the FE Problem
-  void setProblem(FEProblemBase * problem) {
-    if(problem==nullptr)
-      throw std::logic_error("Problem passed is null");
-    _problem_ptr = problem;
-  } ;
-
-  /// Check if problem has been set
-  bool hasProblem(){ return !( _problem_ptr == nullptr ); };
-
-  /// Get a reference to the FE problem
+  /// TODO: can delete later
   FEProblemBase& problem();
 
   /// Initialise MOAB
@@ -268,9 +255,6 @@ private:
 
   /// MPI communication of DOFs of binned elements
   void communicateDofSet(std::set<dof_id_type>& dofset);
-
-  /// Pointer to the feProblem we care about
-  FEProblemBase * _problem_ptr;
 
   /// Pointer to a moab skinner for finding temperature surfaces
   std::unique_ptr< moab::Skinner > skinner;

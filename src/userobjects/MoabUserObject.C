@@ -1,4 +1,23 @@
-// Moose includes
+/********************************************************************/
+/*                  SOFTWARE COPYRIGHT NOTIFICATION                 */
+/*                             Cardinal                             */
+/*                                                                  */
+/*                  (c) 2021 UChicago Argonne, LLC                  */
+/*                        ALL RIGHTS RESERVED                       */
+/*                                                                  */
+/*                 Prepared by UChicago Argonne, LLC                */
+/*               Under Contract No. DE-AC02-06CH11357               */
+/*                With the U. S. Department of Energy               */
+/*                                                                  */
+/*             Prepared by Battelle Energy Alliance, LLC            */
+/*               Under Contract No. DE-AC07-05ID14517               */
+/*                With the U. S. Department of Energy               */
+/*                                                                  */
+/*                 See LICENSE for full restrictions                */
+/********************************************************************/
+
+#ifdef ENABLE_DAGMC
+
 #include "MoabUserObject.h"
 #include "OpenMCDensity.h"
 #include "ADOpenMCDensity.h"
@@ -53,7 +72,6 @@ MoabUserObject::validParams()
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   UserObject(parameters),
-  _problem_ptr(nullptr),
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   var_name(getParam<std::string>("bin_varname")),
@@ -163,10 +181,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
 FEProblemBase&
 MoabUserObject::problem()
 {
-  if(_problem_ptr == nullptr)
-    mooseError("No problem was set");
-
-  return *_problem_ptr;
+  return _fe_problem;
 }
 
 MeshBase&
@@ -362,8 +377,6 @@ MoabUserObject::findMaterials()
 moab::ErrorCode
 MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
 {
-  if(!hasProblem()) return moab::MB_FAILURE;
-
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
   // Clear prior results.
@@ -407,10 +420,6 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 void
 MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
 {
-
-  if(!hasProblem()){
-    mooseError("No FEProblem was set in MOABUserObject");
-  }
 
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
@@ -712,10 +721,6 @@ MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
 void
 MoabUserObject::setSolution(unsigned int iSysNow,  unsigned int iVarNow, std::vector< double > &results, double scaleFactor, bool isErr, bool normToVol)
 {
-
-  if(!hasProblem())
-    mooseError("FE problem was not set");
-
   // Fetch a reference to our system
   libMesh::System& sys = systems().get_system(iSysNow);
 
@@ -1698,3 +1703,5 @@ MoabUserObject::createTri(const std::vector<moab::EntityHandle> & vertices,unsig
   surface_tris.insert(triangle);
   return rval;
 }
+
+#endif
