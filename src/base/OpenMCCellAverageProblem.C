@@ -521,15 +521,17 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
   if (isParamValid("skinning_user_object"))
   {
     int n_dagmc_universes = 0;
-    //for (const auto & u : openmc::model::universes)
-    //  if (dynamic_cast<openmc::DAGUniverse *>(u))
-    //    n_dagmc_universes++;
+    for (const auto & u : openmc::model::universes)
+      if (u->geom_type() == openmc::GeometryType::DAG)
+        n_dagmc_universes++;
 
-    //if (n_dagmc_universes == 0)
-    //  checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
-    //else
-    _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
-    _moab_uo->setScaling(_scaling);
+    if (n_dagmc_universes == 0)
+      checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
+    else
+    {
+      _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
+      _moab_uo->setScaling(_scaling);
+    }
   }
 
   // TODO: throw a warning/error if the geometry does not consist ENTIRELY of DAGMC universes?

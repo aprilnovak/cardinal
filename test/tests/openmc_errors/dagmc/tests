@@ -1,0 +1,10 @@
+[Tests]
+  [no_dagmc_universes]
+    type = RunException
+    input = openmc.i
+    cli_args = '--error'
+    expect_err = "When the OpenMC model does not contain any DAGMC universes, the 'skinning_user_object' parameter is unused!"
+    requirement = "The system shall print a warning if trying to use a skinning user object without any DAGMC geometry."
+    required_objects = 'DagMCPostprocessor'
+  []
+[]
