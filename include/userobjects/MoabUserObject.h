@@ -37,6 +37,8 @@ class MoabUserObject : public UserObject
 
   static InputParameters validParams();
 
+  virtual void setScaling (const Real & scaling) { _scaling = scaling; }
+
   /// Override MOOSE virtual method to do nothing
   virtual void execute(){};
   /// Override MOOSE virtual method to do nothing
@@ -72,6 +74,9 @@ class MoabUserObject : public UserObject
 
   /// Publically available pointer to MOAB interface
   std::shared_ptr<moab::Interface> moabPtr;
+
+protected:
+  Real _scaling;
 
 private:
 

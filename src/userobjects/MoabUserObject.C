@@ -39,9 +39,6 @@ MoabUserObject::validParams()
 {
   InputParameters params = UserObject::validParams();
 
-  // MOAB mesh params
-  params.addParam<double>("length_scale", 100.,"Scale factor to convert lengths from MOOSE to MOAB. Default is from metres->centimetres.");
-
   // Params relating to binning
   // Temperature binning
   params.addParam<std::string>("bin_varname", "", "Variable name by whose results elements should be binned.");
@@ -81,7 +78,6 @@ MoabUserObject::validParams()
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   UserObject(parameters),
-  lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   var_name(getParam<std::string>("bin_varname")),
   logscale(getParam<bool>("logscale")),
@@ -403,9 +399,9 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     const Node& node = **itnode;
 
     // Fetch coords (and scale to correct units)
-    coords[0]=lengthscale*double(node(0));
-    coords[1]=lengthscale*double(node(1));
-    coords[2]=lengthscale*double(node(2));
+    coords[0]= _scaling *double(node(0));
+    coords[1]= _scaling *double(node(1));
+    coords[2]= _scaling *double(node(2));
 
     // Fetch ID
     dof_id_type id = node.id();
@@ -1644,8 +1640,8 @@ MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vec
 std::vector<Point>
 MoabUserObject::boxCoords(const BoundingBox& box, double factor)
 {
-  Point minpoint = (box.min())*lengthscale;
-  Point maxpoint = (box.max())*lengthscale;
+  Point minpoint = (box.min())* _scaling;
+  Point maxpoint = (box.max())* _scaling;
   Point diff = (maxpoint - minpoint)/2.0;
   Point origin = minpoint + diff;
 

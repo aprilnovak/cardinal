@@ -519,9 +519,20 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
 
 #ifdef ENABLE_DAGMC
   if (isParamValid("skinning_user_object"))
-    _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
+  {
+    int n_dagmc_universes = 0;
+    //for (const auto & u : openmc::model::universes)
+    //  if (dynamic_cast<openmc::DAGUniverse *>(u))
+    //    n_dagmc_universes++;
 
-  // TODO: throw a warning/error if the geometry does not contain any DAGMC cells?
+    //if (n_dagmc_universes == 0)
+    //  checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
+    //else
+    _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
+    _moab_uo->setScaling(_scaling);
+  }
+
+  // TODO: throw a warning/error if the geometry does not consist ENTIRELY of DAGMC universes?
 #else
   checkUnusedParam(params, "skinning_user_object", "DAGMC is disabled");
 #endif
@@ -2463,6 +2474,11 @@ OpenMCCellAverageProblem::syncSolutions(ExternalProblem::Direction direction)
       // re-establish the mapping from the OpenMC cells to the [Mesh], if needed
       if (!_first_transfer && !_fixed_mesh)
         setupProblem();
+
+#ifdef ENABLE_DAGMC
+      if (_moab_uo)
+        _moab_uo->update();
+#endif
 
       if (_first_transfer)
       {
