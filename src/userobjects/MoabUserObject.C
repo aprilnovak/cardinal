@@ -213,30 +213,23 @@ MoabUserObject::system(std::string var_now)
 void
 MoabUserObject::initMOAB()
 {
-
-  TIME_SECTION(_init_timer);
-
   // Fetch spatial dimension from libMesh
-  int dim = mesh().spatial_dimension() ;
+  int dim = mesh().spatial_dimension();
 
   // Set spatial dimension in MOAB
-  moab::ErrorCode  rval = moabPtr->set_dimension(dim);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Failed to set MOAB dimension");
+  if (moabPtr->set_dimension(dim) != moab::MB_SUCCESS)
+    mooseError("Failed to set MOAB spatial dimension");
 
-  //Create a meshset
-  rval = moabPtr->create_meshset(moab::MESHSET_SET,meshset);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Failed to create mesh set");
+  // Create a meshset
+  if (moabPtr->create_meshset(moab::MESHSET_SET, meshset) != moab::MB_SUCCESS)
+    mooseError("Failed to create mesh set in MOAB");
 
-  rval = createTags();
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Could not set up tags");
+  if(createTags() != moab::MB_SUCCESS)
+    mooseError("Could not set up tags in MOAB");
 
-  std::map<dof_id_type,moab::EntityHandle> node_id_to_handle;
-  rval = createNodes(node_id_to_handle);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Could not create nodes");
+  std::map<dof_id_type, moab::EntityHandle> node_id_to_handle;
+  if (createNodes(node_id_to_handle) != moab::MB_SUCCESS)
+    mooseError("Could not create nodes in MOAB");
 
   createElems(node_id_to_handle);
 
@@ -247,7 +240,6 @@ MoabUserObject::initMOAB()
 bool
 MoabUserObject::update()
 {
-
   TIME_SECTION(_update_timer);
 
   // Clear MOAB mesh data from last timestep

@@ -39,7 +39,7 @@ ENABLE_NEK          ?= yes
 ENABLE_OPENMC       ?= yes
 
 # Whether you want to build OpenMC with DAGMC support; set to anything except 'yes' to skip
-ENABLE_DAGMC        ?= no
+ENABLE_DAGMC        ?= yes
 
 CARDINAL_DIR        := $(abspath $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 CONTRIB_DIR         := $(CARDINAL_DIR)/contrib

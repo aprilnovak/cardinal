@@ -527,10 +527,16 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
 
     if (n_dagmc_universes == 0)
       checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
+    else if (n_dagmc_universes > 1)
+    {
+      // TODO: understand why; also not tested currently
+      mooseError("Multiple DAGMC universes detected - the skinning operations currently only support 1 universe");
+    }
     else
     {
       _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
       _moab_uo->setScaling(_scaling);
+      _moab_uo->initMOAB();
     }
   }
 

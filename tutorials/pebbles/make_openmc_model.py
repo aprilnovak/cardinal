@@ -62,7 +62,7 @@ lattice.universes = np.full((N, 1, 1), repeatable_univ)
 lattice.outer = outer_univ
 
 # create the surfaces that will bound the lattice
-top = openmc.ZPlane(z0=N*L, boundary_type='reflective')
+top = openmc.Sphere(r=N*L, boundary_type='reflective')
 bottom = openmc.ZPlane(z0=0.0, boundary_type='reflective')
 main_cell = openmc.Cell(fill=lattice, region=water_surface & +bottom & -top, name='Main cell')
 
