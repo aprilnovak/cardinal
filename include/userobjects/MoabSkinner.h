@@ -26,11 +26,31 @@ public:
    */
   virtual std::map<dof_id_type,moab::EntityHandle> createNodes();
 
+  /// Helper method to create MOAB elements
+  void createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle);
+
   /**
    * Set length multiplier to convert from [Mesh] to OpenMC's centimeters
    * @param[in] s scaling factor
    */
   virtual void setScaling(const Real & s) { _scaling = s; }
+
+  /// Clear the maps between entity handles and DOF IDs
+  virtual void clearElemMaps();
+
+  /** Return all sets of node indices; for second-order (TET10) elements, this
+   * splits each tet into 8 sub-elements to be compatible with MOAB's first-order TET4.
+   * @param[in] type element type
+   * @return node indices for each tet
+   */
+  virtual std::vector<std::vector<unsigned int>> getTetSets(ElemType type);
+
+  /**
+   * Add an element to the libMesh-MOAB mapping
+   * @param[in] id libMesh ID
+   * @param[in] ent entity handle
+   */
+  virtual void addElem(dof_id_type id, moab::EntityHandle ent);
 
 protected:
   /// Faceting tolerence needed by DAGMC
@@ -71,4 +91,13 @@ protected:
 
   /// Length multiplier to convert from [Mesh] to OpenMC's unit of centimeters
   Real _scaling;
+
+  /// Map from libmesh ID to MOAB element entity handles
+  std::map<dof_id_type, std::vector<moab::EntityHandle>> _id_to_elem_handles;
+
+  /// First tet entity handle
+  moab::EntityHandle _offset;
+
+  /// Number of nodes per MOAB Tet
+  const unsigned int NODES_PER_MOAB_TET = 4;
 };

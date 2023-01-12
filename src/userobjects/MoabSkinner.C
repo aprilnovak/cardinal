@@ -1,5 +1,7 @@
 #include "MoabSkinner.h"
 
+#include "libmesh/enum_io_package.h"
+
 InputParameters
 MoabSkinner::validParams()
 {
@@ -45,6 +47,8 @@ MoabSkinner::initialize()
 
   /// Loop over the [Mesh] and build all the nodes as MOAB vertices
   auto node_id_to_handle = createNodes();
+
+  createElems(node_id_to_handle);
 }
 
 void
@@ -94,6 +98,7 @@ MoabSkinner::createTags()
     mooseError("Failed to set geometry tolerance tag on mesh entity"); // TODO: ever hit?
 }
 
+// TODO: can delete this function, and just place it into createElems
 std::map<dof_id_type, moab::EntityHandle>
 MoabSkinner::createNodes()
 {
@@ -115,4 +120,112 @@ MoabSkinner::createNodes()
   }
 
   return node_id_to_handle;
+}
+
+void
+MoabSkinner::clearElemMaps()
+{
+  _id_to_elem_handles.clear();
+  _offset = 0;
+}
+
+std::vector<std::vector<unsigned int>>
+MoabSkinner::getTetSets(ElemType type)
+{
+  std::vector<std::vector<unsigned int>> perms;
+
+  // TODO: save these as member variables
+  if (type == TET4)
+    perms.push_back({0,1,2,3});
+  else if (type == TET10)
+  {
+    perms.push_back({0,4,6,7});
+    perms.push_back({1,5,4,8});
+    perms.push_back({2,6,5,9});
+    perms.push_back({7,8,9,3});
+    perms.push_back({4,9,7,8});
+    perms.push_back({4,5,9,8});
+    perms.push_back({4,7,9,6});
+    perms.push_back({4,9,5,6});
+  }
+  else
+    mooseError("MoabSkinner requires the [Mesh] to be tetrahedral elements!"); // TODO: add test
+
+  return perms;
+}
+
+void
+MoabSkinner::addElem(dof_id_type id, moab::EntityHandle ent)
+{
+  if (_id_to_elem_handles.find(id) == _id_to_elem_handles.end())
+    _id_to_elem_handles[id] = std::vector<moab::EntityHandle>();
+
+  _id_to_elem_handles[id].push_back(ent);
+}
+
+void
+MoabSkinner::createElems(std::map<dof_id_type, moab::EntityHandle> & node_id_to_handle)
+{
+  // TODO: can just paste function here, to delete clearElemMaps()
+  clearElemMaps();
+
+  moab::Range all_elems;
+
+  for (const auto & elem : _fe_problem.mesh().getMesh().active_element_ptr_range())
+  {
+    // Get all sub-tetrahedra node sets for this element type
+    ElemType type = elem->type();
+    auto nodeSets = getTetSets(type);
+
+    // Fetch ID
+    dof_id_type id = elem->id();
+
+    // Get the connectivity
+    std::vector< dof_id_type > conn_libmesh;
+    elem->connectivity(0, libMesh::IOPackage::VTK, conn_libmesh);
+    if (conn_libmesh.size() != elem->n_nodes())
+      mooseError("Element connectivity is inconsistent"); // TODO: I don't think this could ever be hit
+
+    // Loop over sub tets
+    for(const auto& nodeSet: nodeSets)
+    {
+      // Set MOAB connectivity
+      std::vector<moab::EntityHandle> conn(NODES_PER_MOAB_TET);
+      for(unsigned int i = 0; i < NODES_PER_MOAB_TET; ++i)
+      {
+        // Get the elem node index of the ith node of the sub-tet
+        unsigned int nodeIndex = nodeSet.at(i);
+
+        if(nodeIndex >= conn_libmesh.size()) // TODO: I don't think this could be hit
+          mooseError("Element index is out of range");
+
+        // Get node's entity handle
+        if(node_id_to_handle.find(conn_libmesh.at(nodeIndex)) ==
+           node_id_to_handle.end())
+          mooseError("Could not find node entity handle"); // TODO: ever hit?
+
+        conn[i] = node_id_to_handle[conn_libmesh.at(nodeIndex)];
+      }
+
+      // Create an element in MOAB database
+      moab::EntityHandle ent(0);
+      auto rval = _moab->create_element(moab::MBTET, conn.data(), NODES_PER_MOAB_TET, ent);
+      if (rval != moab::MB_SUCCESS)
+        mooseError("Failed to create MOAB element"); // TODO: ever hit?
+
+      // Save mapping between libMesh ids and moab handles
+      addElem(id, ent);
+
+      // Save the handle for adding to entity sets
+      all_elems.insert(ent);
+    }
+  }
+
+  // Add the elems to the full meshset
+  auto rval = _moab->add_entities(_meshset, all_elems);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to create MOAB mesh set");
+
+  // Save the first elem
+  _offset = all_elems.front();
 }
