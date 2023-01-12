@@ -6,4 +6,12 @@
     requirement = "The system shall error if trying to do MOAB skinning operations on a non-tetrahedral mesh"
     required_objects = 'DagMCPostprocessor'
   []
+  [nonexistent_material]
+    type = RunException
+    input = tet.i
+    cli_args = 'UserObjects/skin/material_names="missing"'
+    expect_err = "Could not find material 'missing' in 'material_names'!"
+    requirement = "The system shall error if specifying a non-existent material name."
+    required_objects = 'DagMCPostprocessor'
+  []
 []
