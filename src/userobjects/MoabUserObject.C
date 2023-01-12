@@ -221,6 +221,8 @@ MoabUserObject::initMOAB()
   // Fetch spatial dimension from libMesh
   int dim = mesh().spatial_dimension();
 
+  // TODO: do we ever hit any of these errors?
+
   // Set spatial dimension in MOAB
   if (_moab_ptr->set_dimension(dim) != moab::MB_SUCCESS)
     mooseError("Failed to set MOAB spatial dimension");
@@ -421,81 +423,53 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 }
 
 void
-MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
+MoabUserObject::createElems(std::map<dof_id_type, moab::EntityHandle>& node_id_to_handle)
 {
-
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
-  // Clear prior results.
   clearElemMaps();
 
-  moab::Range all_elems;
+  moab::Range all_elems; // TODO: is this needed?
+
+  // TODO: what if the [Mesh] is all tet, but has disconnected elements?
 
   for (const auto & elem : mesh().active_element_ptr_range())
   {
     // Get sub-tetrahedra node sets
     auto nodeSets = getTetSets(elem->type());
 
-    // Fetch ID
-    auto id = elem->id();
-
-    // Get the connectivity
+    // Get the libMesh connectivity
     std::vector<dof_id_type> conn_libmesh;
-    elem->connectivity(0, libMesh::IOPackage::VTK, conn_libmesh);
-    if (conn_libmesh.size() != elem->n_nodes()){
-      mooseError("Element connectivity is inconsistent");
-    }
+    elem->connectivity(0, libMesh::IOPackage::VTK /* the IO format */, conn_libmesh);
 
     // Loop over sub tets
-    for(const auto& nodeSet: nodeSets){
-
+    for (const auto & nodeSet : nodeSets)
+    {
       // Set MOAB connectivity
-      std::vector<moab::EntityHandle> conn(NODES_PER_MOAB_TET);
-      for(unsigned int iNode=0; iNode<NODES_PER_MOAB_TET;++iNode){
-
-        // Get the elem node index of the ith node of the sub-tet
-        unsigned int nodeIndex = nodeSet.at(iNode);
-
-        if(nodeIndex >= conn_libmesh.size()){
-          mooseError("Element index is out of range");
-        }
-
-        // Get node's entity handle
-        if(node_id_to_handle.find(conn_libmesh.at(nodeIndex)) ==
-           node_id_to_handle.end()){
-          mooseError("Could not find node entity handle");
-        }
-        conn[iNode]=node_id_to_handle[conn_libmesh.at(nodeIndex)];
-      }
+      std::vector<moab::EntityHandle> conn;
+      for (const auto & n : nodeSet)
+        conn.push_back(node_id_to_handle[conn_libmesh.at(n)]);
 
       // Create an element in MOAB database
       moab::EntityHandle ent(0);
-      if(rval!=moab::MB_SUCCESS){
-        std::string err="Could not create MOAB element: rval = "
-          +std::to_string(rval);
-        mooseError(err);
-      }
+      if (rval != moab::MB_SUCCESS) // TODO: do we ever hit this?
+        mooseError("Failed to create MOAB element: rval = " + std::to_string(rval));;
 
       // Save mapping between libMesh ids and moab handles
-      addElem(id,ent);
+      addElem(elem->id(), ent);
 
       // Save the handle for adding to entity sets
       all_elems.insert(ent);
-    } // End loop over sub-tetrahedra for current elem
-
-  } // End loop over elems
+    }
+  }
 
   // Add the elems to the full meshset
   rval = _moab_ptr->add_entities(meshset,all_elems);
-  if(rval!=moab::MB_SUCCESS){
-    std::string err="Could not create meshset: rval = "
-      +std::to_string(rval);
-    mooseError(err);
-  }
+  if (rval != moab::MB_SUCCESS) // TODO: do we ever hit this?
+    mooseError("Could not create meshset: rval = " + std::to_string(rval));
 
   // Save the first elem
-  offset = all_elems.front();
-
+  _offset = all_elems.front();
 }
 
 const std::vector<std::vector<int>> &
@@ -668,16 +642,16 @@ void
 MoabUserObject::clearElemMaps()
 {
   _id_to_elem_handles.clear();
-  offset=0;
+  _offset = 0;
 }
 
 void
-MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
+MoabUserObject::addElem(dof_id_type id, moab::EntityHandle ent)
 {
-  if(_id_to_elem_handles.find(id)==_id_to_elem_handles.end()){
+  if (_id_to_elem_handles.find(id) == _id_to_elem_handles.end())
     _id_to_elem_handles[id]=std::vector<moab::EntityHandle>();
-  }
-  (_id_to_elem_handles[id]).push_back(ent);
+
+  _id_to_elem_handles[id].push_back(ent);
 }
 
 void
@@ -706,7 +680,7 @@ MoabUserObject::setSolution(unsigned int iSysNow,  unsigned int iVarNow, std::ve
     double result=0.;
     for(const auto ent : ents){
       // Conversion to bin index
-      unsigned int binIndex = ent - offset;
+      unsigned int binIndex = ent - _offset;
 
       if( (binIndex+1) > results.size() ){
         throw std::runtime_error("Mismatch in size of results vector and number of elements");

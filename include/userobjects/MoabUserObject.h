@@ -271,8 +271,8 @@ private:
   /// Map from libmesh id to MOAB element entity handles
   std::map<dof_id_type,std::vector<moab::EntityHandle> > _id_to_elem_handles;
 
-  /// Save the first tet entity handle
-  moab::EntityHandle offset;
+  /// First tet entity handle, for determining offsets
+  moab::EntityHandle _offset;
 
   // Data members relating to binning in temperature
 
