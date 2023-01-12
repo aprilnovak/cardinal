@@ -1,10 +1,9 @@
 [Tests]
-  [no_dagmc_universes]
+  [invalid_elem]
     type = RunException
     input = openmc.i
-    cli_args = '--error'
-    expect_err = "When the OpenMC model does not contain any DAGMC universes, the 'skinning_user_object' parameter is unused!"
-    requirement = "The system shall print a warning if trying to use a skinning user object without any DAGMC geometry."
+    expect_err = "The MoabUserObject can only be used with a tetrahedral element \[Mesh\]!"
+    requirement = "The system shall error if trying to do MOAB skinning operations on a non-tetrahedral mesh"
     required_objects = 'DagMCPostprocessor'
   []
 []

@@ -525,7 +525,7 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
       if (u->geom_type() == openmc::GeometryType::DAG)
         n_dagmc_universes++;
 
-    if (n_dagmc_universes == 0)
+    if (n_dagmc_universes == 0) // TODO: test
       checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
     else if (n_dagmc_universes > 1)
     {

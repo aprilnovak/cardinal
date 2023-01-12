@@ -421,27 +421,19 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
   moab::Range all_elems;
 
   // Iterate over elements in the mesh
-  auto itelem = mesh().active_elements_begin();
-  auto endelem = mesh().active_elements_end();
-  for( ; itelem!=endelem; ++itelem){
-
-    // Get a reference to current elem
-    Elem& elem = **itelem;
-
+  for (const auto & elem : mesh().active_element_ptr_range())
+  {
     // Get all sub-tetrahedra node sets for this element type
-    ElemType type = elem.type();
     std::vector< std::vector<unsigned int> > nodeSets;
-    if(!getTetSets(type,nodeSets)){
-      mooseError("Could not find element (sub-)tetrahedra");
-    }
+    getTetSets(elem->type(), nodeSets);
 
     // Fetch ID
-    dof_id_type id = elem.id();
+    dof_id_type id = elem->id();
 
     // Get the connectivity
     std::vector< dof_id_type > conn_libmesh;
-    elem.connectivity(0,libMesh::IOPackage::VTK,conn_libmesh);
-    if(conn_libmesh.size()!=elem.n_nodes()){
+    elem->connectivity(0,libMesh::IOPackage::VTK,conn_libmesh);
+    if(conn_libmesh.size()!=elem->n_nodes()){
       mooseError("Element connectivity is inconsistent");
     }
 
@@ -503,15 +495,12 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 }
 
 bool
-MoabUserObject::getTetSets(ElemType type,
-                           std::vector< std::vector<unsigned int> >  &perms)
+MoabUserObject::getTetSets(ElemType type, std::vector<std::vector<unsigned int>> & perms)
 {
   perms.clear();
 
-  // Check all the elements are tets
-  if(type!=TET4 && type!=TET10){
-    return false;
-  }
+  if (type != TET4 && type != TET10)
+    mooseError("The MoabUserObject can only be used with a tetrahedral element [Mesh]!");
 
   if(type==TET4){
     perms.push_back({0,1,2,3});
