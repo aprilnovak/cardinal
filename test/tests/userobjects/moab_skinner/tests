@@ -2,9 +2,16 @@
   [empty_output_base]
     type = RunException
     input = tet.i
-    cli_args = 'UserObjects/skin/output_base=""'
+    cli_args = 'UserObjects/moab/output_base_full=""'
     expect_err = "'output_base_full' cannot be an empty string!"
     requirement = "The system shall error is the output_base is provided as an empty string"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [full_write]
+    type = CheckFiles
+    input = tet.i
+    check_files = 'moab_full_0.h5m moab_full_1.h5m'
+    requirement = "The system shall write the full MOAB mesh to file"
     required_objects = 'DagMCPostprocessor'
   []
 []

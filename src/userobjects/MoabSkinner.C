@@ -256,7 +256,9 @@ MoabSkinner::writeFullMesh() const
   std::string filename = _output_base_full + "_" + std::to_string(_n_write) +".h5m";
   _console << "Writing MOAB mesh to "<< filename << "... ";
 
-  // TODO: would be nice to just write VTK or Exodus directly, instead of needing the mbconvert
+  // TODO: would be nice to just write VTK or Exodus directly, instead of needing the mbconvert.
+  // We currently test that we write the files, but this could be more rigorous if we can check
+  // the actual mesh contents too.
   auto rval = _moab->write_mesh(filename.c_str());
   if (rval != moab::MB_SUCCESS) // TODO: ever hit?
     mooseError("Failed to write full MOAB mesh");

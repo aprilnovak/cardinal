@@ -6,15 +6,15 @@
   [add_block]
     type = SubdomainIDGenerator
     input = cube
-    subdomain_id = 0
+    subdomain_id = 1
   []
 []
 
 [Problem]
   type = OpenMCCellAverageProblem
   power = 100.0
-  solid_blocks = '0'
-  tally_blocks = '0'
+  solid_blocks = '1'
+  tally_blocks = '1'
   solid_cell_level = 0
   tally_type = cell
   tally_name = heat_source
@@ -23,9 +23,17 @@
   skinning_user_object = moab
 []
 
+[Materials]
+  [mat]
+    type = OpenMCDensity
+    density = 100.0
+  []
+[]
+
 [UserObjects]
   [moab]
     type = MoabUserObject
+    material_names = 'mat'
   []
 []
 
