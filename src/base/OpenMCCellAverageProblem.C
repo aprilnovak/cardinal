@@ -529,18 +529,10 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
       checkUnusedParam(params, "skinning_user_object", "the OpenMC model does not contain any DAGMC universes");
     else if (n_dagmc_universes > 1)
     {
-      // TODO: understand why; also not tested currently
+      // TODO: not tested
       mooseError("Multiple DAGMC universes detected - the skinning operations currently only support 1 universe");
     }
-    else
-    {
-      _moab_uo = &getUserObject<MoabUserObject>("skinning_user_object");
-      _moab_uo->setScaling(_scaling);
-      _moab_uo->initMOAB();
-    }
   }
-
-  // TODO: throw a warning/error if the geometry does not consist ENTIRELY of DAGMC universes?
 #else
   checkUnusedParam(params, "skinning_user_object", "DAGMC is disabled");
 #endif
@@ -559,6 +551,19 @@ OpenMCCellAverageProblem::initialSetup()
 
   if (_adaptivity.isOn() && _fixed_mesh)
     mooseError("When using mesh adaptivity, 'fixed_mesh' must be false!");
+
+#ifdef ENABLE_DAGMC
+  if (isParamValid("skinning_user_object"))
+  {
+    auto name = getParam<UserObjectName>("skinning_user_object");
+    _moab_uo = &getUserObject<MoabUserObject>(name);
+    _moab_uo->setScaling(_scaling);
+
+    _moab_uo->initMOAB(); // TODO: can probably move whatever is in this call into the UO directly
+  }
+
+  // TODO: throw a warning/error if the geometry does not consist ENTIRELY of DAGMC universes? What happens if there are some CSG universes in there?
+#endif
 }
 
 void
@@ -2485,7 +2490,9 @@ OpenMCCellAverageProblem::syncSolutions(ExternalProblem::Direction direction)
 
 #ifdef ENABLE_DAGMC
       if (_moab_uo)
+      {
         _moab_uo->update();
+      }
 #endif
 
       if (_first_transfer)

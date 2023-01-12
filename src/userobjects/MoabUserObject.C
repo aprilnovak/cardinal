@@ -31,27 +31,26 @@
 #include "libmesh/system.h"
 #include "libmesh/mesh_tools.h"
 
-
 registerMooseObject("CardinalApp", MoabUserObject);
 
 InputParameters
 MoabUserObject::validParams()
 {
-  InputParameters params = UserObject::validParams();
+  InputParameters params = GeneralUserObject::validParams();
 
   // Params relating to binning
   // Temperature binning
   params.addParam<std::string>("bin_varname", "", "Variable name by whose results elements should be binned.");
-  params.addParam<double>("var_min", 297.5,"Minimum value to define range of bins.");
+  params.addRangeCheckedParam<double>("var_min", 297.5,"var_min > 0.0", "Minimum value to define range of bins.");
   params.addParam<double>("var_max", 597.5,"Max value to define range of bins.");
   params.addParam<bool>("logscale", false, "Switch to determine if logarithmic binning should be used.");
-  params.addParam<unsigned int>("n_bins", 60, "Number of bins");
+  params.addRangeCheckedParam<unsigned int>("n_bins", 60, "n_bins > 0", "Number of bins");
   // Density binning
   params.addParam<std::string>("density_name", "", "Variable name for density by whose results elements should be binned.");
   params.addParam<bool>("bin_density", false, "Determine if elements should be additionally binned by material density");
   params.addParam<double>("rel_den_min", -0.1,"Minimum difference in density relative to original material density");
   params.addParam<double>("rel_den_max",  0.1,"Maximum difference in density relative to original material density");
-  params.addParam<unsigned int>("n_density_bins", 5, "Number of relative density bins");
+  params.addRangeCheckedParam<unsigned int>("n_density_bins", 5, "n_density_bins > 0", "Number of relative density bins");
    params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
@@ -61,7 +60,7 @@ MoabUserObject::validParams()
   // Dagmc params
   params.addParam<double>("faceting_tol",1.e-4,"Faceting tolerance for DagMC");
   params.addParam<double>("geom_tol",1.e-6,"Geometry tolerance for DagMC");
-  params.addParam<double>("graveyard_scale_inner",1.01,"Graveyard inner surface scalefactor relative to aligned bounding box.");
+  params.addRangeCheckedParam<double>("graveyard_scale_inner", 1.01,"graveyard_scale_inner >= 1.0", "Graveyard inner surface scalefactor relative to aligned bounding box.");
   params.addParam<double>("graveyard_scale_outer",1.10,"Graveyard outer surface scalefactor relative to aligned bounding box.");
 
   // Output params
@@ -77,7 +76,7 @@ MoabUserObject::validParams()
 
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
-  UserObject(parameters),
+  GeneralUserObject(parameters),
   densityscale(getParam<double>("density_scale")),
   var_name(getParam<std::string>("bin_varname")),
   logscale(getParam<bool>("logscale")),
@@ -104,20 +103,24 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _update_timer(registerTimedSection("update", 2)),
   _setsolution_timer(registerTimedSection("setsolution", 2))
 {
+  std::cout << "Creating skinner" << std::endl;
+
   // Create MOAB interface
-  moabPtr =  std::make_shared<moab::Core>();
+  _moab_ptr = std::make_shared<moab::Core>();
 
   // Create a skinner
-  skinner = std::make_unique<moab::Skinner>(moabPtr.get());
+  _skinner = std::make_unique<moab::Skinner>(_moab_ptr.get());
 
   // Create a geom topo tool
-  gtt = std::make_unique<moab::GeomTopoTool>(moabPtr.get());
+  _gtt = std::make_unique<moab::GeomTopoTool>(_moab_ptr.get());
 
   // Set variables relating to binning
-  binElems = !( var_name == "" || mat_names.empty());
-  binByDensity = !( den_var_name == "" || !binElems );
+  //_bin_elems = !( var_name == "" || mat_names.empty());
+  _bin_elems = isParamValid("bin_varname") || isParamValid("material_names");
+  //_bin_by_density = !( den_var_name == "" || !_bin_elems );
+  _bin_by_density = isParamValid("density_name") || _bin_elems;
 
-  if(binElems){
+  if(_bin_elems){
     // If no alternative names were provided for openmc materials
     // assume they are the same as in MOOSE
     if(openmc_mat_names.empty()){
@@ -127,9 +130,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
       mooseError("If both are provided, the vectors material_names and material_openmc_names should have identical lengths.");
     }
 
-    if(var_min <= 0.){
-      mooseError("var_min out of range! Please pick a value > 0");
-    }
     if(var_max <= var_min){
       mooseError("Please pick a value for var_max > var_min");
     }
@@ -143,12 +143,9 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     nMinor = nVarBins/nPow;
     calcMidpoints();
 
-    if(binByDensity){
+    if(_bin_by_density){
       if(rel_den_max < rel_den_min){
         mooseError("Relative density bin range is ill-defined");
-      }
-      if(nDenBins < 1){
-        mooseError("Number of density bins must exceed 0.");
       }
     }
     else{
@@ -160,9 +157,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     calcDenMidpoints();
   }
 
-  if(scalefactor_inner < 1.0){
-    mooseError("Please set graveyard_scale_inner to a value greater than 1");
-  }
   if(scalefactor_outer < scalefactor_inner){
     mooseError("Please ensure graveyard_scale_outer exceeds graveyard_scale_inner");
   }
@@ -217,11 +211,11 @@ MoabUserObject::initMOAB()
   int dim = mesh().spatial_dimension();
 
   // Set spatial dimension in MOAB
-  if (moabPtr->set_dimension(dim) != moab::MB_SUCCESS)
+  if (_moab_ptr->set_dimension(dim) != moab::MB_SUCCESS)
     mooseError("Failed to set MOAB spatial dimension");
 
   // Create a meshset
-  if (moabPtr->create_meshset(moab::MESHSET_SET, meshset) != moab::MB_SUCCESS)
+  if (_moab_ptr->create_meshset(moab::MESHSET_SET, meshset) != moab::MB_SUCCESS)
     mooseError("Failed to create mesh set in MOAB");
 
   if(createTags() != moab::MB_SUCCESS)
@@ -240,6 +234,7 @@ MoabUserObject::initMOAB()
 bool
 MoabUserObject::update()
 {
+  std::cout << "updating UO" << std::endl;
   TIME_SECTION(_update_timer);
 
   // Clear MOAB mesh data from last timestep
@@ -293,7 +288,7 @@ MoabUserObject::findMaterials()
 {
 
   // Don't need to do this step if we are not performing binning
-  if(!binElems) return;
+  if(!_bin_elems) return;
 
   // Clear any prior data.
   mat_blocks.clear();
@@ -312,7 +307,7 @@ MoabUserObject::findMaterials()
       mooseError("Could not find material "+mat );
     }
 
-    if(binByDensity){
+    if(_bin_by_density){
       // Sadly AD mats and non-AD mats do not inherit from same object
       auto openmc_den_ptr = std::dynamic_pointer_cast<OpenMCDensity>(mat_ptr);
       auto ad_openmc_den_ptr = std::dynamic_pointer_cast<ADOpenMCDensity>(mat_ptr);
@@ -400,7 +395,7 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
     // Add node to MOAB database and get handle
     moab::EntityHandle ent(0);
-    rval = moabPtr->create_vertex(coords,ent);
+    rval = _moab_ptr->create_vertex(coords,ent);
     if(rval!=moab::MB_SUCCESS){
       node_id_to_handle.clear();
       return rval;
@@ -478,7 +473,7 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
       // Create an element in MOAB database
       moab::EntityHandle ent(0);
-      rval = moabPtr->create_element(moab::MBTET,conn.data(),nNodesPerTet,ent);
+      rval = _moab_ptr->create_element(moab::MBTET,conn.data(),nNodesPerTet,ent);
       if(rval!=moab::MB_SUCCESS){
         std::string err="Could not create MOAB element: rval = "
           +std::to_string(rval);
@@ -495,7 +490,7 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
   } // End loop over elems
 
   // Add the elems to the full meshset
-  rval = moabPtr->add_entities(meshset,all_elems);
+  rval = _moab_ptr->add_entities(meshset,all_elems);
   if(rval!=moab::MB_SUCCESS){
     std::string err="Could not create meshset: rval = "
       +std::to_string(rval);
@@ -552,30 +547,30 @@ MoabUserObject::createTags()
   moab::ErrorCode rval = moab::MB_SUCCESS;
 
   // First some built-in MOAB tag types
-  rval = moabPtr->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER, geometry_dimension_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER, geometry_dimension_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS) return rval;
 
-  rval = moabPtr->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER, id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER, id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS) return rval;
 
-  rval = moabPtr->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE, category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE, category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
-  rval = moabPtr->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE, name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE, name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
   // Some tags needed for DagMC
-  rval = moabPtr->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
-  rval = moabPtr->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  rval = _moab_ptr->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
   // Set the values for DagMC faceting / geometry tolerance tags on the mesh entity set
-  rval = moabPtr->tag_set_data(faceting_tol_tag, &meshset, 1, &faceting_tol);
+  rval = _moab_ptr->tag_set_data(faceting_tol_tag, &meshset, 1, &faceting_tol);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
-  rval = moabPtr->tag_set_data(geometry_resabs_tag, &meshset, 1, &geom_tol);
+  rval = _moab_ptr->tag_set_data(geometry_resabs_tag, &meshset, 1, &geom_tol);
   return rval;
 }
 
@@ -583,7 +578,7 @@ moab::ErrorCode
 MoabUserObject::createGroup(unsigned int id, std::string name,moab::EntityHandle& group_set)
 {
   // Create a new mesh set
-  moab::ErrorCode rval = moabPtr->create_meshset(moab::MESHSET_SET,group_set);
+  moab::ErrorCode rval = _moab_ptr->create_meshset(moab::MESHSET_SET,group_set);
   if(rval!=moab::MB_SUCCESS) return rval;
 
   // Set the tags for this material
@@ -594,14 +589,14 @@ MoabUserObject::createGroup(unsigned int id, std::string name,moab::EntityHandle
 moab::ErrorCode
 MoabUserObject::createVol(unsigned int id,moab::EntityHandle& volume_set,moab::EntityHandle group_set)
 {
-  moab::ErrorCode rval = moabPtr->create_meshset(moab::MESHSET_SET,volume_set);
+  moab::ErrorCode rval = _moab_ptr->create_meshset(moab::MESHSET_SET,volume_set);
   if(rval!=moab::MB_SUCCESS) return rval;
 
   rval =  setTags(volume_set,"","Volume",id,3);
   if(rval != moab::MB_SUCCESS) return rval;
 
   // Add the volume to group
-  rval = moabPtr->add_entities(group_set, &volume_set,1);
+  rval = _moab_ptr->add_entities(group_set, &volume_set,1);
   if(rval != moab::MB_SUCCESS) return rval;
 
   return rval;
@@ -611,7 +606,7 @@ moab::ErrorCode
 MoabUserObject::createSurf(unsigned int id,moab::EntityHandle& surface_set, moab::Range& faces,  std::vector<VolData> & voldata)
 {
   // Create meshset
-  moab::ErrorCode rval = moabPtr->create_meshset(moab::MESHSET_SET,surface_set);
+  moab::ErrorCode rval = _moab_ptr->create_meshset(moab::MESHSET_SET,surface_set);
   if(rval!=moab::MB_SUCCESS) return rval;
 
   // Set tags
@@ -619,7 +614,7 @@ MoabUserObject::createSurf(unsigned int id,moab::EntityHandle& surface_set, moab
   if(rval!=moab::MB_SUCCESS) return rval;
 
   // Add tris to the surface
-  rval = moabPtr->add_entities(surface_set,faces);
+  rval = _moab_ptr->add_entities(surface_set,faces);
   if(rval != moab::MB_SUCCESS) return rval;
 
   // Create entry in map
@@ -639,11 +634,11 @@ MoabUserObject::updateSurfData(moab::EntityHandle surface_set,VolData data)
 {
 
   // Add the surface to the volume set
-  moab::ErrorCode rval = moabPtr->add_parent_child(data.vol,surface_set);
+  moab::ErrorCode rval = _moab_ptr->add_parent_child(data.vol,surface_set);
   if(rval != moab::MB_SUCCESS) return rval;
 
   // Set the surfaces sense
-  rval = gtt->set_sense(surface_set,data.vol,int(data.sense));
+  rval = _gtt->set_sense(surface_set,data.vol,int(data.sense));
   if(rval != moab::MB_SUCCESS) return rval;
 
   // Save
@@ -687,7 +682,7 @@ MoabUserObject::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string da
   auto namebuf= new char[SIZE];
   memset(namebuf,'\0', SIZE); // fill C char array with null
   strncpy(namebuf,data.c_str(),SIZE-1);
-  moab::ErrorCode rval = moabPtr->tag_set_data(tag,&ent,1,namebuf);
+  moab::ErrorCode rval = _moab_ptr->tag_set_data(tag,&ent,1,namebuf);
   // deallocate memory
   delete[] namebuf;
   return rval;
@@ -696,7 +691,7 @@ MoabUserObject::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string da
 moab::ErrorCode
 MoabUserObject::setTagData(moab::Tag tag, moab::EntityHandle ent, void* data)
 {
-  return moabPtr->tag_set_data(tag,&ent,1,data);
+  return _moab_ptr->tag_set_data(tag,&ent,1,data);
 }
 
 void
@@ -812,7 +807,7 @@ void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_o
 
   // We shouldn't call this function until after initMOAB
   // due to timing of intialisation of MOOSE materials)
-  if(binByDensity && initialDensities.size()!=openmc_mat_names.size())
+  if(_bin_by_density && initialDensities.size()!=openmc_mat_names.size())
     mooseError("Initial densities not yet initialised.");
 
   // Set the original densities of materials
@@ -872,11 +867,11 @@ MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsig
 void
 MoabUserObject::initBinningData(){
   // Don't attempt to bin results if we haven't been provided with a variable
-  if(!binElems) return;
+  if(!_bin_elems) return;
 
   // Create mesh functions for each variable we are bining by
   setMeshFunction(var_name);
-  if(binByDensity){
+  if(_bin_by_density){
     setMeshFunction(den_var_name);
   }
 
@@ -988,7 +983,7 @@ bool
 MoabUserObject::sortElemsByResults()
 {
   // Don't attempt to bin results if we haven't been provided with a variable
-  if(!binElems) return false;
+  if(!_bin_elems) return false;
 
    // Clear any prior data;
   resetContainers();
@@ -996,7 +991,7 @@ MoabUserObject::sortElemsByResults()
   // Get the mesh functions for temperature and densities
   std::shared_ptr<MeshFunction> meshFunctionPtr = getMeshFunction(var_name);
   std::shared_ptr<MeshFunction> denMeshFunctionPtr(nullptr);
-  if(binByDensity){
+  if(_bin_by_density){
     denMeshFunctionPtr= getMeshFunction(den_var_name);
   }
 
@@ -1021,7 +1016,7 @@ MoabUserObject::sortElemsByResults()
         Point p = elemCentroid(elem);
 
         int iDenBin=0;
-        if(binByDensity){
+        if(_bin_by_density){
           // Evaluate the density mesh function on this point
           double den_result = evalMeshFunction(denMeshFunctionPtr,p);
           // Get the initial density for this material
@@ -1188,13 +1183,13 @@ MoabUserObject::write()
       }
       std::string filename = output_base + "_" + std::to_string(n_write) +".h5m";
       std::cout << "Writing MOAB surface mesh to "<< filename << std::endl;
-      moab::ErrorCode rval = moabPtr->write_mesh(filename.c_str(),surfs.data(),surfs.size());
+      moab::ErrorCode rval = _moab_ptr->write_mesh(filename.c_str(),surfs.data(),surfs.size());
       if(rval != moab::MB_SUCCESS) return false;
     }
     if(output_full){
       std::string filename = output_base_full + "_" + std::to_string(n_write) +".h5m";
       std::cout << "Writing MOAB mesh to "<< filename << std::endl;
-      moab::ErrorCode rval = moabPtr->write_mesh(filename.c_str());
+      moab::ErrorCode rval = _moab_ptr->write_mesh(filename.c_str());
       if(rval != moab::MB_SUCCESS) return false;
     }
     n_write++;
@@ -1302,11 +1297,11 @@ void
 MoabUserObject::reset()
 {
   // Clear data
-  moabPtr.reset(new moab::Core());
+  _moab_ptr.reset(new moab::Core());
 
   // Create a skinner and geometry topo tool
-  skinner.reset(new moab::Skinner(moabPtr.get()));
-  gtt.reset(new moab::GeomTopoTool(moabPtr.get()));
+  _skinner.reset(new moab::Skinner(_moab_ptr.get()));
+  _gtt.reset(new moab::GeomTopoTool(_moab_ptr.get()));
 
   // Clear entity set maps
   surfsToVols.clear();
@@ -1459,7 +1454,7 @@ MoabUserObject::findSurface(const moab::Range& region,moab::EntityHandle group, 
   // Find surfaces from these regions
   moab::Range tris; // The tris of the surfaces
   moab::Range rtris;  // The tris which are reversed with respect to their surfaces
-  rval = skinner->find_skin(0,region,false,tris,&rtris);
+  rval = _skinner->find_skin(0,region,false,tris,&rtris);
   if(rval != moab::MB_SUCCESS) return false;
   if(tris.size()==0 && rtris.size()==0) return false;
 
@@ -1494,7 +1489,7 @@ MoabUserObject::createSurfaces(moab::Range& faces, VolData& voldata, unsigned in
 
     // First get the entities in this surface
     moab::Range tris;
-    rval = moabPtr->get_entities_by_handle(surf,tris);
+    rval = _moab_ptr->get_entities_by_handle(surf,tris);
     if(rval!=moab::MB_SUCCESS) return rval;
 
     // Find any tris that live in both surfs
@@ -1508,7 +1503,7 @@ MoabUserObject::createSurfaces(moab::Range& faces, VolData& voldata, unsigned in
       }
       else{
         // If overlap is subset, subtract shared tris from this surface and create a new shared surface
-        rval = moabPtr->remove_entities(surf,overlap);
+        rval = _moab_ptr->remove_entities(surf,overlap);
         if(rval!=moab::MB_SUCCESS) return rval;
 
         // Append our new volume to the list that share this surf
@@ -1619,7 +1614,7 @@ MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vec
     coord[2]=vert(2);
 
     moab::EntityHandle ent;
-    rval = moabPtr->create_vertex(coord,ent);
+    rval = _moab_ptr->create_vertex(coord,ent);
     if(rval!=moab::MB_SUCCESS){
       vert_handles.clear();
       return rval;
@@ -1696,7 +1691,7 @@ MoabUserObject::createTri(const std::vector<moab::EntityHandle> & vertices,unsig
   moab::ErrorCode rval = moab::MB_SUCCESS;
   moab::EntityHandle triangle;
   moab::EntityHandle connectivity[3] = { vertices[v1],vertices[v2],vertices[v3] };
-  rval = moabPtr->create_element(moab::MBTRI,connectivity,3,triangle);
+  rval = _moab_ptr->create_element(moab::MBTRI,connectivity,3,triangle);
   surface_tris.insert(triangle);
   return rval;
 }

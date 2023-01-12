@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UserObject.h"
+#include "GeneralUserObject.h"
 #include "MaterialBase.h"
 
 #include "moab/Core.hpp"
@@ -29,7 +29,7 @@ class MoabUserObject;
     and subsequently perform a skinning operation to find the
     surfaces of these local regions.
  */
-class MoabUserObject : public UserObject
+class MoabUserObject : public GeneralUserObject
 {
  public:
 
@@ -72,10 +72,17 @@ class MoabUserObject : public UserObject
                              std::vector<std::string>& tails,
                              std::vector<MOABMaterialProperties>& properties);
 
-  /// Publically available pointer to MOAB interface
-  std::shared_ptr<moab::Interface> moabPtr;
-
 protected:
+  /// MOAB interface
+  std::shared_ptr<moab::Interface> _moab_ptr;
+
+  /// Pointer to a moab skinner for finding temperature surfaces
+  std::unique_ptr<moab::Skinner> _skinner;
+
+  /// Pointer for a topology tool for setting surface sense
+  std::unique_ptr<moab::GeomTopoTool> _gtt;
+
+  /// Length multiplier to convert from [Mesh] unit to OpenMC's centimeters
   Real _scaling;
 
 private:
@@ -254,15 +261,6 @@ private:
   /// MPI communication of DOFs of binned elements
   void communicateDofSet(std::set<dof_id_type>& dofset);
 
-  /// Pointer to a moab skinner for finding temperature surfaces
-  std::unique_ptr< moab::Skinner > skinner;
-
-  /// Pointer for gtt for setting surface sense
-  std::unique_ptr< moab::GeomTopoTool > gtt;
-
-  /// Convert MOOSE units to dagmc length units
-  double lengthscale;
-
   /// Convert MOOSE density units to openmc density units
   double densityscale;
 
@@ -276,8 +274,10 @@ private:
 
   /// Name of the MOOSE variable
   std::string var_name;
+
   /// Whether or not to perform binning
-  bool binElems;
+  bool _bin_elems;
+
   /// Whether or not to bin in a log scale
   bool logscale;
   /// Minimum value of our variable
@@ -306,7 +306,7 @@ private:
   /// Name of the MOOSE variable containing the density
   std::string den_var_name;
   /// Switch to determine if we should bin by material density
-  bool binByDensity;
+  bool _bin_by_density;
   /// Minimum relative density diff
   double rel_den_min;
   /// Max relative density diff
