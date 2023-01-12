@@ -1,0 +1,10 @@
+[Tests]
+  [empty_output_base]
+    type = RunException
+    input = tet.i
+    cli_args = 'UserObjects/skin/output_base=""'
+    expect_err = "'output_base_full' cannot be an empty string!"
+    requirement = "The system shall error is the output_base is provided as an empty string"
+    required_objects = 'DagMCPostprocessor'
+  []
+[]

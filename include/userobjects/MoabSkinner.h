@@ -16,6 +16,8 @@ public:
   static InputParameters validParams();
 
   virtual void initialize() override;
+  virtual void execute() override;
+  virtual void finalize() override {};
 
   /// Helper method to create MOAB tags
   virtual void createTags();
@@ -52,12 +54,27 @@ public:
    */
   virtual void addElem(dof_id_type id, moab::EntityHandle ent);
 
+  /// Write the full MOAB mesh to _output_base_full_<int>.h5m
+  virtual void writeFullMesh() const;
+
+  /// Write the MOAB mesh
+  virtual void write();
+
 protected:
   /// Faceting tolerence needed by DAGMC
   const Real & _faceting_tol;
 
   /// Geometry tolerence needed by DAGMC
   const Real & _geom_tol;
+
+  /// Whether to output the full MOAB mesh
+  const bool & _output_full;
+
+  /// Base filename to write full (entire) MOAB meshes
+  const std::string & _output_base_full;
+
+  /// File index for writing MOAB meshes
+  unsigned int _n_write;
 
   /// MOAB interface
   std::shared_ptr<moab::Interface> _moab;
