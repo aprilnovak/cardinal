@@ -158,8 +158,12 @@ private:
   /// Helper function to wrap moab::tag_set_data for a generic pointer
   moab::ErrorCode setTagData(moab::Tag tag, moab::EntityHandle ent, void* data);
 
-  /// Return all sets of node indices for sub-tetrahedra if we have a second order mesh
-  bool getTetSets(ElemType type, std::vector< std::vector<unsigned int> > &perms);
+  /**
+   * Get sets of node indices for tetrahedra
+   * @param[in] type element type
+   * @return node numberings
+   */
+  virtual const std::vector<std::vector<int>> & getTetSets(ElemType type) const;
 
   /// Build the graveyard (needed by OpenMC)
   moab::ErrorCode buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
@@ -362,8 +366,8 @@ private:
   /// Tag for name of entity set
   moab::Tag name_tag;
 
-  /// Const to encode that MOAB tets have 4 nodes
-  const unsigned int nNodesPerTet = 4;
+  /// All MOAB tet elements are first-order
+  const unsigned int NODES_PER_MOAB_TET = 4;
 
   // DagMC settings
   /// Faceting tolerence needed by DAGMC
@@ -402,4 +406,12 @@ private:
   /// Performance timer for setSolution
   PerfID _setsolution_timer;
 
+  /// Node numbering for TET4 elements
+  std::vector<std::vector<int>> _tet4_nodes;
+
+  /**
+   * Node numbering to rebuild TET10 elements as a collection of TET4 elements,
+   * for compatibility with MOAB's elements always being first-order tets.
+   */
+  std::vector<std::vector<int>> _tet10_nodes;
 };

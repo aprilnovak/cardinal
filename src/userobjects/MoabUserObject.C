@@ -175,6 +175,17 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   // Set variables relating to writing to file
   n_write=0;
   n_its=0;
+
+  _tet4_nodes.push_back({0,1,2,3});
+
+  _tet10_nodes.push_back({0,4,6,7});
+  _tet10_nodes.push_back({1,5,4,8});
+  _tet10_nodes.push_back({2,6,5,9});
+  _tet10_nodes.push_back({7,8,9,3});
+  _tet10_nodes.push_back({4,9,7,8});
+  _tet10_nodes.push_back({4,5,9,8});
+  _tet10_nodes.push_back({4,7,9,6});
+  _tet10_nodes.push_back({4,9,5,6});
 }
 
 FEProblemBase&
@@ -420,33 +431,27 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
   moab::Range all_elems;
 
-  // Iterate over elements in the mesh
   for (const auto & elem : mesh().active_element_ptr_range())
   {
-    // Get all sub-tetrahedra node sets for this element type
-    std::vector< std::vector<unsigned int> > nodeSets;
-    getTetSets(elem->type(), nodeSets);
+    // Get sub-tetrahedra node sets
+    auto nodeSets = getTetSets(elem->type());
 
     // Fetch ID
-    dof_id_type id = elem->id();
+    auto id = elem->id();
 
     // Get the connectivity
-    std::vector< dof_id_type > conn_libmesh;
-    elem->connectivity(0,libMesh::IOPackage::VTK,conn_libmesh);
-    if(conn_libmesh.size()!=elem->n_nodes()){
+    std::vector<dof_id_type> conn_libmesh;
+    elem->connectivity(0, libMesh::IOPackage::VTK, conn_libmesh);
+    if (conn_libmesh.size() != elem->n_nodes()){
       mooseError("Element connectivity is inconsistent");
     }
 
     // Loop over sub tets
     for(const auto& nodeSet: nodeSets){
 
-      if(nodeSet.size() != nNodesPerTet){
-        mooseError("Wrong number of elements for sub-tetrahedron");
-      }
-
       // Set MOAB connectivity
-      std::vector<moab::EntityHandle> conn(nNodesPerTet);
-      for(unsigned int iNode=0; iNode<nNodesPerTet;++iNode){
+      std::vector<moab::EntityHandle> conn(NODES_PER_MOAB_TET);
+      for(unsigned int iNode=0; iNode<NODES_PER_MOAB_TET;++iNode){
 
         // Get the elem node index of the ith node of the sub-tet
         unsigned int nodeIndex = nodeSet.at(iNode);
@@ -465,7 +470,6 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
       // Create an element in MOAB database
       moab::EntityHandle ent(0);
-      rval = _moab_ptr->create_element(moab::MBTET,conn.data(),nNodesPerTet,ent);
       if(rval!=moab::MB_SUCCESS){
         std::string err="Could not create MOAB element: rval = "
           +std::to_string(rval);
@@ -494,39 +498,16 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
 }
 
-bool
-MoabUserObject::getTetSets(ElemType type, std::vector<std::vector<unsigned int>> & perms)
+const std::vector<std::vector<int>> &
+MoabUserObject::getTetSets(ElemType type) const
 {
-  perms.clear();
-
-  if (type != TET4 && type != TET10)
+  if (type == TET4)
+    return _tet4_nodes;
+  else if (type == TET10)
+    return _tet10_nodes;
+  else
     mooseError("The MoabUserObject can only be used with a tetrahedral element [Mesh]!");
-
-  if(type==TET4){
-    perms.push_back({0,1,2,3});
-  }
-  else{ // TET10
-
-    // See libmesh cell_tet10.h for vertex labelling conventions
-
-    // One tet at each corner
-    perms.push_back({0,4,6,7});
-    perms.push_back({1,5,4,8});
-    perms.push_back({2,6,5,9});
-    perms.push_back({7,8,9,3});
-
-    // 4 tets from central octahedron (2 back-to-back square based pyramids)
-    // Central square is 4-5-9-7
-    // Arbitrary choice of diagonal: 4-9
-    perms.push_back({4,9,7,8});
-    perms.push_back({4,5,9,8});
-    perms.push_back({4,7,9,6});
-    perms.push_back({4,9,5,6});
-  }
-
-  return true;
 }
-
 
 moab::ErrorCode
 MoabUserObject::createTags()
