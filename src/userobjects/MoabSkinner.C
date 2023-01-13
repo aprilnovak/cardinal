@@ -282,15 +282,36 @@ MoabSkinner::write()
 }
 
 void
-MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int SIZE)
+MoabSkinner::setTags(moab::EntityHandle ent, std::string name, std::string category, unsigned int id, int dim)
 {
-  auto namebuf = new char[SIZE];
-  memset(namebuf,'\0', SIZE);
-  strncpy(namebuf, data.c_str(), SIZE - 1);
+  if (name != "")
+    setTagData(_name_tag, ent, name, NAME_TAG_SIZE);
+
+  if (category != "")
+    setTagData(_category_tag, ent, category, CATEGORY_TAG_SIZE);
+
+  setTagData(_geometry_dimension_tag, ent, &dim);
+
+  setTagData(_id_tag, ent, &id);
+}
+
+void
+MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int size)
+{
+  auto namebuf = new char[size];
+  memset(namebuf,'\0', size);
+  strncpy(namebuf, data.c_str(), size - 1);
   auto rval = _moab->tag_set_data(tag, &ent, 1, namebuf);
 
   if (rval != moab::MB_SUCCESS)
-    mooseError("Failed to set tag data"); // TODO: hit?
+    mooseError("Failed to set tag data for tag '" + data + "'"); // TODO: hit?
 
   delete[] namebuf;
+}
+
+moab::ErrorCode
+MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, void * data)
+{
+  // TODO: can delete this function and just insert where called
+  return _moab->tag_set_data(tag, &ent, 1, data);
 }

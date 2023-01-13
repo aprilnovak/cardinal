@@ -65,6 +65,12 @@ public:
    */
   void setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int SIZE);
 
+  /// Helper function to wrap moab::tag_set_data for a generic pointer
+  moab::ErrorCode setTagData(moab::Tag tag, moab::EntityHandle ent, void* data);
+
+  /// Generic method to set the tags that DAGMC requires
+  void setTags(moab::EntityHandle ent, std::string name, std::string category, unsigned int id, int dim);
+
 protected:
   /// Faceting tolerence needed by DAGMC
   const Real & _faceting_tol;
