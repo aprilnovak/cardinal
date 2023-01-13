@@ -71,6 +71,13 @@ public:
   /// Generic method to set the tags that DAGMC requires
   void setTags(moab::EntityHandle ent, std::string name, std::string category, unsigned int id, int dim);
 
+  /// Helper method to create MOAB group entity set
+  void createGroup(unsigned int id, std::string name, moab::EntityHandle & group_set);
+
+  /// Helper method to create MOAB volume entity set
+  void createVol(unsigned int id, moab::EntityHandle & volume_set, moab::EntityHandle group_set);
+
+
 protected:
   /// Faceting tolerence needed by DAGMC
   const Real & _faceting_tol;

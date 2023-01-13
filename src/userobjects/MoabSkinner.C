@@ -315,3 +315,30 @@ MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, void * data)
   // TODO: can delete this function and just insert where called
   return _moab->tag_set_data(tag, &ent, 1, data);
 }
+
+void
+MoabSkinner::createGroup(unsigned int id, std::string name, moab::EntityHandle & group_set)
+{
+  // Create a new mesh set
+  auto rval = _moab->create_meshset(moab::MESHSET_SET, group_set);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to create group for '" + name + "'"); // TODO: hit?
+
+  // Set the tags for this material
+  setTags(group_set, name, "Group", id, 4);
+}
+
+void
+MoabSkinner::createVol(unsigned int id, moab::EntityHandle & volume_set, moab::EntityHandle group_set)
+{
+  auto rval = _moab->create_meshset(moab::MESHSET_SET, volume_set);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to create meshset!"); // TODO: hit?
+
+  setTags(volume_set, "", "Volume", id, 3);
+
+  // Add the volume to group
+  rval = _moab->add_entities(group_set, &volume_set, 1);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to add volume to group!"); // TODO: hit?
+}
