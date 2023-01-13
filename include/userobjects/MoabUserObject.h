@@ -412,12 +412,4 @@ private:
   unsigned int n_write;
   /// Store the number of times writeSurfaces is called
   unsigned int n_its;
-
-  /// Performance timer for initialisation
-  PerfID _init_timer;
-  /// Performance timer for update
-  PerfID _update_timer;
-  /// Performance timer for setSolution
-  PerfID _setsolution_timer;
-
 };
