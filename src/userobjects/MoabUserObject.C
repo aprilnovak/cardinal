@@ -55,7 +55,6 @@ MoabUserObject::validParams()
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   UserObject(parameters),
-  _problem_ptr(nullptr),
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   var_name(getParam<std::string>("bin_varname")),
@@ -159,38 +158,29 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   n_its=0;
 }
 
-FEProblemBase&
-MoabUserObject::problem()
-{
-  if(_problem_ptr == nullptr)
-    mooseError("No problem was set");
-
-  return *_problem_ptr;
-}
-
 MeshBase&
 MoabUserObject::mesh()
 {
-  if(problem().haveDisplaced()){
-    return problem().getDisplacedProblem()->mesh().getMesh();
+  if(_fe_problem.haveDisplaced()){
+    return _fe_problem.getDisplacedProblem()->mesh().getMesh();
   }
-  return problem().mesh().getMesh();
+  return _fe_problem.mesh().getMesh();
 }
 
 EquationSystems&
 MoabUserObject::systems()
 {
-  return problem().es();
+  return _fe_problem.es();
 }
 
 System&
 MoabUserObject::system(std::string var_now)
 {
-  return problem().getSystem(var_now);
+  return _fe_problem.getSystem(var_now);
 }
 
 void
-MoabUserObject::initMOAB()
+MoabUserObject::initialize()
 {
   // Fetch spatial dimension from libMesh
   int dim = mesh().spatial_dimension() ;
@@ -220,22 +210,20 @@ MoabUserObject::initMOAB()
   findMaterials();
 }
 
-bool
-MoabUserObject::update()
+void
+MoabUserObject::execute()
 {
   // Clear MOAB mesh data from last timestep
   reset();
 
   // Re-initialise the mesh data
-  initMOAB();
+  initialize();
 
   // Sort libMesh elements into bins of the specified variable
-  if(!sortElemsByResults()) return false;
+  sortElemsByResults();
 
   // Find the surfaces of local temperature regions
-  if(!findSurfaces()) return false;
-
-  return true;
+  findSurfaces();
 }
 
 // Pass the results for named variable into the libMesh systems solution
@@ -252,10 +240,10 @@ MoabUserObject::setSolution(std::string var_now,std::vector< double > &results, 
     {
       setSolution(iSys,iVar,results,scaleFactor,isErr,normToVol);
 
-      problem().copySolutionsBackwards();
+      _fe_problem.copySolutionsBackwards();
 
       for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid){
-        problem().getVariable(tid,var_now).computeElemValues();
+        _fe_problem.getVariable(tid,var_now).computeElemValues();
       }
     }
   catch(std::runtime_error &e)
@@ -285,7 +273,7 @@ MoabUserObject::findMaterials()
   // Loop over the materials provided by the user
   for(const auto & mat : mat_names){
     // Look for the material
-    std::shared_ptr< MaterialBase > mat_ptr = problem().getMaterial(mat, Moose::BLOCK_MATERIAL_DATA);
+    std::shared_ptr< MaterialBase > mat_ptr = _fe_problem.getMaterial(mat, Moose::BLOCK_MATERIAL_DATA);
 
     if(mat_ptr == nullptr){
       mooseError("Could not find material "+mat );
@@ -353,8 +341,6 @@ MoabUserObject::findMaterials()
 moab::ErrorCode
 MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
 {
-  if(!hasProblem()) return moab::MB_FAILURE;
-
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
   // Clear prior results.
@@ -398,11 +384,6 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 void
 MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
 {
-
-  if(!hasProblem()){
-    mooseError("No FEProblem was set in MOABUserObject");
-  }
-
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
   // Clear prior results.
@@ -703,10 +684,6 @@ MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
 void
 MoabUserObject::setSolution(unsigned int iSysNow,  unsigned int iVarNow, std::vector< double > &results, double scaleFactor, bool isErr, bool normToVol)
 {
-
-  if(!hasProblem())
-    mooseError("FE problem was not set");
-
   // Fetch a reference to our system
   libMesh::System& sys = systems().get_system(iSysNow);
 

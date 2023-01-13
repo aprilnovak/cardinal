@@ -47,39 +47,20 @@ class MoabUserObject : public UserObject
 
   static InputParameters validParams();
 
-  /// Override MOOSE virtual method to do nothing
-  virtual void execute(){};
-  /// Override MOOSE virtual method to do nothing
-  virtual void initialize(){};
+  virtual void execute() override;
+
+  virtual void initialize() override;
+
   /// Override MOOSE virtual method to do nothing
   virtual void finalize(){};
   /// Override MOOSE virtual method to do nothing
   virtual void threadJoin(const UserObject & /*uo*/){};
-
-  /// Pass in the FE Problem
-  void setProblem(FEProblemBase * problem) {
-    if(problem==nullptr)
-      throw std::logic_error("Problem passed is null");
-    _problem_ptr = problem;
-  } ;
-
-  /// Check if problem has been set
-  bool hasProblem(){ return !( _problem_ptr == nullptr ); };
-
-  /// Get a reference to the FE problem
-  FEProblemBase& problem();
-
-  /// Initialise MOAB
-  void initMOAB();
 
   /// Intialise objects needed to perform binning of elements
   void initBinningData();
 
   /// Clear mesh data
   void reset();
-
-  /// Update MOAB with any results from MOOSE
-  bool update();
 
   /// Pass the OpenMC results into the libMesh systems solution
   bool setSolution(std::string var_now,std::vector< double > &results, double scaleFactor=1., bool isErr=false, bool normToVol=true);
