@@ -60,6 +60,11 @@ public:
   /// Write the MOAB mesh
   virtual void write();
 
+  /** Helper function to wrap moab::tag_set_data for a string
+   * TODO: meaning of params?
+   */
+  void setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int SIZE);
+
 protected:
   /// Faceting tolerence needed by DAGMC
   const Real & _faceting_tol;

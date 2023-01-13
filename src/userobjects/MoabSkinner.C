@@ -28,8 +28,8 @@ MoabSkinner::MoabSkinner(const InputParameters & parameters)
     _geom_tol(getParam<Real>("geom_tol")),
     _output_full(getParam<bool>("output_full")),
     _output_base_full(getParam<std::string>("output_base_full")),
-    _scaling(1.0),
-    _n_write(0)
+    _n_write(0),
+    _scaling(1.0)
 {
   // Create MOAB interface
   _moab = std::make_shared<moab::Core>();
@@ -279,4 +279,18 @@ MoabSkinner::write()
     writeFullMesh();
 
   _n_write++;
+}
+
+void
+MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int SIZE)
+{
+  auto namebuf = new char[SIZE];
+  memset(namebuf,'\0', SIZE);
+  strncpy(namebuf, data.c_str(), SIZE - 1);
+  auto rval = _moab->tag_set_data(tag, &ent, 1, namebuf);
+
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to set tag data"); // TODO: hit?
+
+  delete[] namebuf;
 }
