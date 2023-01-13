@@ -66,7 +66,7 @@ public:
   void setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data, unsigned int SIZE);
 
   /// Helper function to wrap moab::tag_set_data for a generic pointer
-  moab::ErrorCode setTagData(moab::Tag tag, moab::EntityHandle ent, void* data);
+  void setTagData(moab::Tag tag, moab::EntityHandle ent, void* data);
 
   /// Generic method to set the tags that DAGMC requires
   void setTags(moab::EntityHandle ent, std::string name, std::string category, unsigned int id, int dim);
@@ -79,6 +79,23 @@ public:
 
 
 protected:
+
+  /// Encode the whether the surface normal faces into or out of the volume
+  enum Sense { BACKWARDS=-1, FORWARDS=1};
+
+  /// \brief Encode MOAB information about volumes needed when creating surfaces
+  struct VolData
+  {
+    moab::EntityHandle vol;
+    Sense sense;
+  };
+
+  /// Helper method to create MOAB surface entity set
+  void createSurf(unsigned int id,moab::EntityHandle& surface_set, moab::Range& faces,  std::vector<VolData> & voldata);
+
+  /// Add parent-child metadata relating a surface to its volume
+  void updateSurfData(moab::EntityHandle surface_set, VolData data);
+
   /// Faceting tolerence needed by DAGMC
   const Real & _faceting_tol;
 
@@ -132,6 +149,9 @@ protected:
 
   /// First tet entity handle
   moab::EntityHandle _offset;
+
+  /// Save some topological data: map from surface handle to vol handle and sense
+  std::map<moab::EntityHandle, std::vector<VolData>> _surfs_to_vols;
 
   /// Number of nodes per MOAB Tet
   const unsigned int NODES_PER_MOAB_TET = 4;

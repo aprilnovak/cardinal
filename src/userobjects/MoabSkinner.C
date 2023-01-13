@@ -309,11 +309,11 @@ MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, std::string data,
   delete[] namebuf;
 }
 
-moab::ErrorCode
+void
 MoabSkinner::setTagData(moab::Tag tag, moab::EntityHandle ent, void * data)
 {
   // TODO: can delete this function and just insert where called
-  return _moab->tag_set_data(tag, &ent, 1, data);
+  _moab->tag_set_data(tag, &ent, 1, data);
 }
 
 void
@@ -341,4 +341,45 @@ MoabSkinner::createVol(unsigned int id, moab::EntityHandle & volume_set, moab::E
   rval = _moab->add_entities(group_set, &volume_set, 1);
   if (rval != moab::MB_SUCCESS)
     mooseError("Failed to add volume to group!"); // TODO: hit?
+}
+
+void
+MoabSkinner::createSurf(unsigned int id, moab::EntityHandle & surface_set, moab::Range & faces,
+  std::vector<VolData> & voldata)
+{
+  // Create meshset
+  auto rval = _moab->create_meshset(moab::MESHSET_SET, surface_set);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to create meshset"); // TODO: hit?
+
+  // Set tags
+  setTags(surface_set, "", "Surface", id, 2);
+
+  // Add tris to the surface
+  rval = _moab->add_entities(surface_set, faces);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to add tris to surfaec"); // TODO: hit?
+
+  // Create entry in map
+  _surfs_to_vols[surface_set] = std::vector<VolData>();
+
+  // Add volume to list associated with this surface
+  for (const auto & data : voldata)
+    updateSurfData(surface_set, data);
+}
+
+void
+MoabSkinner::updateSurfData(moab::EntityHandle surface_set, VolData data)
+{
+  // Add the surface to the volume set
+  auto rval = _moab->add_parent_child(data.vol, surface_set);
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to add surface to volume set"); // TODO: hit?
+
+  // Set the surfaces sense
+  rval = _gtt->set_sense(surface_set, data.vol, int(data.sense));
+  if (rval != moab::MB_SUCCESS)
+    mooseError("Failed to set surface sense"); // TODO: hit?
+
+  _surfs_to_vols[surface_set].push_back(data);
 }
