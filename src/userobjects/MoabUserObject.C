@@ -11,7 +11,9 @@ registerMooseObject("CardinalApp", MoabUserObject);
 InputParameters
 MoabUserObject::validParams()
 {
-  InputParameters params = UserObject::validParams();
+  InputParameters params = GeneralUserObject::validParams();
+
+  params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
 
   // MOAB mesh params
   params.addParam<double>("length_scale", 100.,"Scale factor to convert lengths from MOOSE to MOAB. Default is from metres->centimetres.");
@@ -19,7 +21,7 @@ MoabUserObject::validParams()
   // Params relating to binning
   // Temperature binning
   params.addParam<std::string>("bin_varname", "", "Variable name by whose results elements should be binned.");
-  params.addParam<double>("var_min", 297.5,"Minimum value to define range of bins.");
+  params.addRangeCheckedParam<double>("var_min", 0.0, "var_min >= 0.0", "Minimum value to define range of bins.");
   params.addParam<double>("var_max", 597.5,"Max value to define range of bins.");
   params.addParam<bool>("logscale", false, "Switch to determine if logarithmic binning should be used.");
   params.addParam<unsigned int>("n_bins", 60, "Number of bins");
@@ -54,7 +56,8 @@ MoabUserObject::validParams()
 
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
-  UserObject(parameters),
+  GeneralUserObject(parameters),
+  _build_graveyard(getParam<bool>("build_graveyard")),
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   var_name(getParam<std::string>("bin_varname")),
@@ -79,6 +82,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   n_output(getParam<unsigned int>("n_output")),
   n_period(getParam<unsigned int>("n_skip")+1)
 {
+  std::cout << "BIN" << std::endl;
   // Create MOAB interface
   moabPtr =  std::make_shared<moab::Core>();
 
@@ -88,9 +92,14 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   // Create a geom topo tool
   gtt = std::make_unique<moab::GeomTopoTool>(moabPtr.get());
 
+  std::cout << var_name << std::endl;
+
   // Set variables relating to binning
   binElems = !( var_name == "" || mat_names.empty());
   binByDensity = !( den_var_name == "" || !binElems );
+
+  if (binElems) std::cout << "bin by var" << std::endl;
+  if (binByDensity) std::cout << "bin by density" << std::endl;
 
   if(binElems){
     // If no alternative names were provided for openmc materials
@@ -102,9 +111,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
       mooseError("If both are provided, the vectors material_names and material_openmc_names should have identical lengths.");
     }
 
-    if(var_min <= 0.){
-      mooseError("var_min out of range! Please pick a value > 0");
-    }
     if(var_max <= var_min){
       mooseError("Please pick a value for var_max > var_min");
     }
@@ -213,8 +219,11 @@ MoabUserObject::initialize()
 void
 MoabUserObject::execute()
 {
+  std::cout << "execute" << std::endl;
   // Clear MOAB mesh data from last timestep
   reset();
+
+  initBinningData(); // TODO: is this in the right place?
 
   // Re-initialise the mesh data
   initialize();
@@ -309,12 +318,12 @@ MoabUserObject::findMaterials()
       unsigned int nblks_before = unique_blocks.size();
       unsigned int nblks_new = blocks.size();
       for(const auto blk: blocks){
-        if(blk < 1 || blk > maxBlockID){
-          std::string errmsg="Block ID "+std::to_string(blk)+" for material "+mat
-            +" is inconsistent with mesh (max subdomains = "
-            +std::to_string(maxBlockID)+")";
-            mooseError(errmsg);
-        }
+        //if(blk < 1 || blk > maxBlockID){
+        //  std::string errmsg="Block ID "+std::to_string(blk)+" for material "+mat
+        //    +" is inconsistent with mesh (max subdomains = "
+        //    +std::to_string(maxBlockID)+")";
+        //    mooseError(errmsg);
+        //}
         unique_blocks.insert(blk);
       }
       if(unique_blocks.size() != (nblks_before+nblks_new) ){
@@ -1030,7 +1039,7 @@ MoabUserObject::sortElemsByResults()
   }
 
   if(elemCountCheck != mesh().n_active_elem()){
-    mooseError("Disparity in number of sorted elements.");
+    mooseError("Disparity in number of sorted elements.", elemCountCheck, " ",  mesh().n_active_elem());
   }
 
   return true;
@@ -1114,8 +1123,11 @@ MoabUserObject::findSurfaces()
     } // End loop over materials
 
     // Finally, build a graveyard
-    rval = buildGraveyard(vol_id,surf_id);
-    if(rval != moab::MB_SUCCESS) return false;
+    if (_build_graveyard)
+    {
+      rval = buildGraveyard(vol_id,surf_id);
+      if(rval != moab::MB_SUCCESS) return false;
+    }
 
   }
   catch(std::exception &e){

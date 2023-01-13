@@ -1,16 +1,13 @@
 #pragma once
 
-// MOOSE includes
-#include "UserObject.h"
+#include "GeneralUserObject.h"
 #include "MaterialBase.h"
 
-// MOAB includes
 #include "moab/Core.hpp"
 #include "moab/Skinner.hpp"
 #include "moab/GeomTopoTool.hpp"
 #include "MBTagConventions.hpp"
 
-// Libmesh includes
 #include <libmesh/elem.h>
 #include <libmesh/enum_io_package.h>
 #include <libmesh/enum_order.h>
@@ -25,12 +22,6 @@ struct MOABMaterialProperties{
   double rel_density;
   double temp;
 };
-
-
-// Forward Declarations
-class MoabUserObject;
-
-
 /**
     \brief UserObject class which wraps a moab::Interface pointer.
 
@@ -39,7 +30,7 @@ class MoabUserObject;
     and subsequently perform a skinning operation to find the
     surfaces of these local regions.
  */
-class MoabUserObject : public UserObject
+class MoabUserObject : public GeneralUserObject
 {
  public:
 
@@ -73,6 +64,9 @@ class MoabUserObject : public UserObject
 
   /// Publically available pointer to MOAB interface
   std::shared_ptr<moab::Interface> moabPtr;
+
+protected:
+  const bool & _build_graveyard;
 
 private:
 
