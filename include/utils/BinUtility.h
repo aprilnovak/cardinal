@@ -30,4 +30,12 @@ namespace bin_utility {
  */
 unsigned int linearBin(const Real & value, const std::vector<Real> & bounds);
 
+/**
+ * Get the midpoint of a bin
+ * @param[in] bin index
+ * @param[in] bounds bounds of the bins
+ * @return midpoint
+ */
+Real midpoint(const unsigned int & bin, const std::vector<Real> & bounds);
+
 } // end of namespace bin_utility

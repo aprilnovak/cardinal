@@ -80,4 +80,19 @@ TEST_F(BinUtilityTest, linear_bins)
   v = 265.0;
   bin = bin_utility::linearBin(v, bounds);
   EXPECT_EQ(bin, 4);
+
+  auto mid = bin_utility::midpoint(0, bounds);
+  EXPECT_DOUBLE_EQ(mid, 120.0);
+
+  mid = bin_utility::midpoint(1, bounds);
+  EXPECT_DOUBLE_EQ(mid, 160.0);
+
+  mid = bin_utility::midpoint(2, bounds);
+  EXPECT_DOUBLE_EQ(mid, 200.0);
+
+  mid = bin_utility::midpoint(3, bounds);
+  EXPECT_DOUBLE_EQ(mid, 240.0);
+
+  mid = bin_utility::midpoint(4, bounds);
+  EXPECT_DOUBLE_EQ(mid, 280.0);
 }

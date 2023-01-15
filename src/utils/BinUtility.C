@@ -32,4 +32,10 @@ unsigned int linearBin(const Real & value, const std::vector<Real> & bounds)
   else
     return static_cast<unsigned int>(std::distance(bounds.begin(), one_higher - 1));
 }
+
+Real midpoint(const unsigned int & bin, const std::vector<Real> & bounds)
+{
+  return 0.5 * (bounds[bin] + bounds[bin + 1]);
+}
+
 } // end namespace bin_utility
