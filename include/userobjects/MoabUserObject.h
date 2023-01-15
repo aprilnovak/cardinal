@@ -133,8 +133,15 @@ private:
   /// Helper method to create MOAB surfaces with no overlaps
   moab::ErrorCode createSurfaces(moab::Range& reversed, VolData& voldata, unsigned int& surf_id);
 
-  /// Create a MOAB surface from a bounding box
-  moab::ErrorCode createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, double factor=1.0);
+  /**
+   * Create a MOAB surface from a bounding box
+   * @param[in] box bounding box
+   * @param[in]
+   * @param[in]
+   * @param[in]
+   * @param[in] factor
+   */
+  moab::ErrorCode createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor);
 
   /// Create MOAB nodes from a bounding box
   moab::ErrorCode createNodesFromBox(const BoundingBox& box,double factor,std::vector<moab::EntityHandle>& vert_handles);
@@ -168,9 +175,6 @@ private:
 
   /// Build the graveyard (needed by OpenMC)
   moab::ErrorCode buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
-
-  /// Get the coords of the box back as an array (possibly scaled)
-  std::vector<Point> boxCoords(const BoundingBox& box, double factor);
 
   /// Look for materials in the FE problem
   void findMaterials();
@@ -284,8 +288,8 @@ private:
   /// Number of density bins
   unsigned int _n_density_bins;
 
-  /// Number of distinct subdomains (e.g. vols, mats)
-  unsigned int nMatBins;
+  /// Number of blocks
+  unsigned int _n_material_bins;
 
   /// Container for elems sorted by variable bin and materials
   std::vector<std::set<dof_id_type> > sortedElems;

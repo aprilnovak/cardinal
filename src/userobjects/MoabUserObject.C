@@ -6,6 +6,7 @@
 #include "DisplacedProblem.h"
 #include "VariadicTable.h"
 #include "BinUtility.h"
+#include "GeometryUtility.h"
 #include "UserErrorChecking.h"
 
 #include "libmesh/elem.h"
@@ -306,9 +307,9 @@ MoabUserObject::findMaterials()
   }
 
   // Save number of materials
-  nMatBins = mat_blocks.size();
+  _n_material_bins = mat_blocks.size();
 
-  if(nMatBins == 0)
+  if(_n_material_bins == 0)
     mooseError("No materials were found.");
 
   if(unique_blocks.empty())
@@ -864,7 +865,7 @@ MoabUserObject::sortElemsByResults()
   std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
 
   // Outer loop over materials
-  for(unsigned int iMat=0; iMat<nMatBins; iMat++){
+  for(unsigned int iMat=0; iMat<_n_material_bins; iMat++){
 
     // Get the subdomains for this material
     std::set<SubdomainID>& blocks = mat_blocks.at(iMat);
@@ -1020,7 +1021,7 @@ MoabUserObject::findSurfaces()
     unsigned int surf_id=0;
 
     // Loop over material bins
-    for(unsigned int iMat=0; iMat<nMatBins; iMat++){
+    for(unsigned int iMat=0; iMat<_n_material_bins; iMat++){
 
       // Get the base material name:
       std::string mat_name = "mat:"+openmc_mat_names.at(iMat);
@@ -1195,7 +1196,7 @@ MoabUserObject::groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::R
 void
 MoabUserObject::resetContainers()
 {
-  unsigned int nSortBins = nMatBins*_n_density_bins*_n_temperature_bins;
+  unsigned int nSortBins = _n_material_bins*_n_density_bins*_n_temperature_bins;
   sortedElems.clear();
   sortedElems.resize(nSortBins);
 
@@ -1248,9 +1249,9 @@ MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, in
     mooseError(err);
   }
 
-  int nMatBins = _n_density_binsIn*_n_temperature_bins;
+  int _n_material_bins = _n_density_binsIn*_n_temperature_bins;
   int iMatBin= n_temperature_binsIn*iDenBin + iVarBin;
-  if(iMatBin<0 || iMatBin >= nMatBins){
+  if(iMatBin<0 || iMatBin >= _n_material_bins){
     mooseError("Cannot find material bin index.");
   }
   return iMatBin;
@@ -1357,7 +1358,7 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
 
   // Create the graveyard set
   moab::EntityHandle graveyard;
-  unsigned int id = nMatBins*_n_temperature_bins*_n_density_bins+1;
+  unsigned int id = _n_material_bins * _n_temperature_bins * _n_density_bins + 1;
   std::string mat_name = "mat:Graveyard";
   rval = createGroup(id,mat_name,graveyard);
   if(rval != moab::MB_SUCCESS) return rval;
@@ -1374,7 +1375,7 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
   // Find a bounding box
   BoundingBox bbox =  MeshTools::create_bounding_box(mesh());
 
-  // Create inner surface with normals pointing into of box
+  // Create inner surface with normals pointing into box
   rval = createSurfaceFromBox(bbox,vdata,surf_id,false,scalefactor_inner);
   if(rval != moab::MB_SUCCESS) return rval;
 
@@ -1384,7 +1385,7 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
 }
 
 moab::ErrorCode
-MoabUserObject::createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, double factor)
+MoabUserObject::createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor)
 {
   // Create the vertices of the box
   std::vector<moab::EntityHandle> vert_handles;
@@ -1418,8 +1419,9 @@ MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vec
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
   // Fetch the vertices of the box
-  std::vector<Point> verts = boxCoords(box,factor);
-  if(verts.size() != 8) mooseError("Failed to get box coords");
+  auto verts = geom_utility::boxCorners(box,factor);
+  for (auto & v : verts)
+    v *= _scaling;
 
   // Array to represent a coord in moab
   double coord[3];
@@ -1438,39 +1440,6 @@ MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vec
     vert_handles.push_back(ent);
   }
   return rval;
-}
-
-std::vector<Point>
-MoabUserObject::boxCoords(const BoundingBox& box, double factor)
-{
-  Point minpoint = (box.min())*_scaling;
-  Point maxpoint = (box.max())*_scaling;
-  Point diff = (maxpoint - minpoint)/2.0;
-  Point origin = minpoint + diff;
-
-  // Rescale sidelength of box by specified factor
-  diff *=factor;
-
-  // modify minpoint
-  minpoint = origin - diff;
-
-  // Vectors for sides of box
-  Point dx(2.0*diff(0),0.,0.);
-  Point dy(0.,2.0*diff(1),0.);
-  Point dz(0.,0.,2.0*diff(2));
-
-  // Start at (-,-,-) and add side vectors
-  std::vector<Point> verts(8,minpoint);
-  for(unsigned int idz=0; idz<2; idz++){
-    for(unsigned int idy=0; idy<2; idy++){
-      for(unsigned int idx=0; idx<2; idx++){
-        unsigned int ibin = 4*idz + 2*idy+ idx;
-        verts.at(ibin) += double(idx)*dx + double(idy)*dy + double(idz)*dz;
-      }
-    }
-  }
-
-  return verts;
 }
 
 moab::ErrorCode
