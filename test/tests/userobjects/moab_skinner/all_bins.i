@@ -114,9 +114,9 @@
 [UserObjects]
   [moab]
     type = MoabUserObject
-    bin_varname = "temp"
+    temperature = "temp"
     material_names = "mat2 mat1"
-    density_name = "rho"
+    density = "rho"
     n_bins = 5
     var_min = 400.0
     var_max = 650.0

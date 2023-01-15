@@ -27,20 +27,19 @@ MoabUserObject::validParams()
   params.addParam<double>("length_scale", 100.,"Scale factor to convert lengths from MOOSE to MOAB. Default is from metres->centimetres.");
 
   // Params relating to binning
-  // Temperature binning
-  params.addParam<std::string>("bin_varname", "", "Variable name by whose results elements should be binned.");
+  params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements");
 
   params.addRangeCheckedParam<double>("var_min", 0.0, "var_min >= 0.0", "Minimum value to define range of bins.");
   params.addParam<double>("var_max", "Max value to define range of bins.");
   params.addParam<unsigned int>("n_bins", 60, "Number of bins");
 
   // Density binning
-  params.addParam<std::string>("density_name", "", "Variable name for density by whose results elements should be binned.");
+  params.addParam<std::string>("density", "", "Density variable by which to bin elements");
   params.addParam<bool>("bin_density", false, "Determine if elements should be additionally binned by material density");
   params.addParam<double>("rel_den_min", -0.1,"Minimum difference in density relative to original material density");
   params.addParam<double>("rel_den_max",  0.1,"Maximum difference in density relative to original material density");
   params.addParam<unsigned int>("n_density_bins", 5, "Number of relative density bins");
-   params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
+  params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
   params.addParam<std::vector<std::string> >("material_names", std::vector<std::string>(), "List of MOOSE material names");
@@ -69,11 +68,11 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _build_graveyard(getParam<bool>("build_graveyard")),
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
-  var_name(getParam<std::string>("bin_varname")),
+  var_name(getParam<std::string>("temperature")),
   var_min(getParam<double>("var_min")),
   var_max(getParam<double>("var_max")),
   nVarBins(getParam<unsigned int>("n_bins")),
-  den_var_name(getParam<std::string>("density_name")),
+  den_var_name(getParam<std::string>("density")),
   rel_den_min(getParam<double>("rel_den_min")),
   rel_den_max(getParam<double>("rel_den_max")),
   nDenBins(getParam<unsigned int>("n_density_bins")),
@@ -98,7 +97,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
 
   // Create a geom topo tool
   gtt = std::make_unique<moab::GeomTopoTool>(_moab.get());
-
 
   // Set variables relating to binning
   binElems = !( var_name == "" || mat_names.empty());
