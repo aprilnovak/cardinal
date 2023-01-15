@@ -208,8 +208,6 @@ private:
   int getMatBin(int iVarBin, int iDenBin){
     return getMatBin(iVarBin,iDenBin,_n_temperature_bins,_n_density_bins);
   }
-  /// Return the centroid position of an element
-  Point elemCentroid(Elem& elem);
 
   /// Clear the containers of elements grouped into bins of constant temp
   void resetContainers();

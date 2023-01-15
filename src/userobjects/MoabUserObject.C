@@ -969,7 +969,7 @@ MoabUserObject::sortElemsByResults()
         dof_id_type id = elem.id();
 
         // Fetch the central point of this element
-        Point p = elemCentroid(elem);
+        Point p = elem.vertex_average();
 
         int iDenBin = getDensityBin(p, iMat);
         n_density_hits[iDenBin] += 1;
@@ -1083,19 +1083,6 @@ MoabUserObject::getDensityBin(const Point & p, const int & iMat) const
       "  value: ", value, "\n  rel_den_max: ", rel_den_max);
 
   return bin_utility::linearBin(value, _density_bin_bounds);
-}
-
-Point
-MoabUserObject::elemCentroid(Elem& elem){
-  Point centroid(0.,0.,0.);
-  unsigned int nNodes = elem.n_nodes();
-  for(unsigned int iNode=0; iNode<nNodes; ++iNode){
-    // Get the point coords for this node
-    const Point& point = elem.point(iNode);
-    centroid += point;
-  }
-  centroid /= double(nNodes);
-  return centroid;
 }
 
 void
