@@ -1,6 +1,5 @@
 #ifdef ENABLE_DAGMC
 
-// Moose includes
 #include "MoabUserObject.h"
 #include "OpenMCDensity.h"
 #include "ADOpenMCDensity.h"
@@ -140,9 +139,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   for (unsigned int i = 0; i < _n_temperature_bins + 1; ++i)
     _temperature_bin_bounds.push_back(_temperature_min + i * _temperature_bin_width);
 
-  calcMidpoints();
-
-  calcDenMidpoints();
+  for (unsigned int i = 0; i < _n_density_bins + 1; ++i)
+    _density_bin_bounds.push_back(rel_den_min + i * rel_den_bw);
 
   if(scalefactor_inner < 1.0){
     mooseError("Please set graveyard_scale_inner to a value greater than 1");
@@ -791,12 +789,12 @@ void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_o
   for(unsigned int iDen=0; iDen<_n_density_bins; iDen++){
 
     // Retrieve the relative density
-    double rel_den = den_midpoints.at(iDen);
+    double rel_den = bin_utility::midpoint(iDen, _density_bin_bounds);
 
     // Loop over temperature bins
     for(unsigned int iVar=0; iVar<_n_temperature_bins; iVar++){
       // Retrieve the average bin temperature
-      double temp = midpoints.at(iVar);
+      double temp = bin_utility::midpoint(iVar, _temperature_bin_bounds);
 
       // Get the name modifier
       int iNewMatBin = getMatBin(iVar,iDen);
@@ -810,7 +808,6 @@ void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_o
       properties.push_back(mat_props);
     }
   }
-
 }
 
 
@@ -1332,19 +1329,6 @@ MoabUserObject::reset()
   surfsToVols.clear();
 }
 
-void
-MoabUserObject::calcMidpoints()
-{
-  calcMidpointsLin();
-}
-
-
-void
-MoabUserObject::calcMidpointsLin()
-{
-  calcMidpointsLin(_temperature_min,_temperature_bin_width,_n_temperature_bins,midpoints);
-}
-
 int
 MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
 {
@@ -1390,27 +1374,6 @@ MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, in
     mooseError("Cannot find material bin index.");
   }
   return iMatBin;
-}
-
-void
-MoabUserObject::calcDenMidpoints()
-{
-
-  for (unsigned int i = 0; i < _n_density_bins + 1; ++i)
-    _density_bin_bounds.push_back(rel_den_min + i * rel_den_bw);
-
-  calcMidpointsLin(rel_den_min,rel_den_bw,_n_density_bins,den_midpoints);
-}
-
-void
-MoabUserObject::calcMidpointsLin(double temperature_min_in, double bin_width_in,int nbins_in,std::vector<double>& midpoints_in)
-{
-  double var_now = temperature_min_in - bin_width_in/2.0;
-  for(unsigned int i=0; i<nbins_in; i++)
-  {
-    var_now += bin_width_in;
-    midpoints_in.push_back(var_now);
-  }
 }
 
 bool

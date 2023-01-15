@@ -208,17 +208,6 @@ private:
   int getMatBin(int iVarBin, int iDenBin){
     return getMatBin(iVarBin,iDenBin,_n_temperature_bins,_n_density_bins);
   }
-
-  /// Calculate the variable evaluated at the bin midpoints
-  void calcMidpoints();
-  /// Calculate the variable evaluated at the bin midpoints for linear binning
-  void calcMidpointsLin();
-  /// Calculate the density evaluated at the bin midpoints
-  void calcDenMidpoints();
-
-  /// Calculate a generic variable midpoints given binning params
-  void calcMidpointsLin(double var_min_in, double bin_width_in,int nbins_in,std::vector<double>& midpoints_in);
-
   /// Return the centroid position of an element
   Point elemCentroid(Elem& elem);
 
@@ -272,11 +261,6 @@ private:
 
   /// Temperature bin width
   const Real _temperature_bin_width;
-
-  /// Store the temperature corresponding to the bin mipoint
-  std::vector<double> midpoints;
-  /// Store the relative density corresponding to the bin mipoint
-  std::vector<double> den_midpoints;
 
   /// Whether elements are binned by density (in addition to temperature and block)
   const bool _bin_by_density;
@@ -376,7 +360,10 @@ private:
   /// Store the number of times writeSurfaces is called
   unsigned int n_its;
 
+  /// Bounds of the temperature bins
   std::vector<Real> _temperature_bin_bounds;
+
+  /// Bounds of the density bins
   std::vector<Real> _density_bin_bounds;
 
   const int INVALID_POINT_LOCATOR = -1;
