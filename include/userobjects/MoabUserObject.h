@@ -204,11 +204,11 @@ private:
   inline int getRelDensityBin(double value) const;
 
   /// Map density and temp bin indices onto a linearised index
-  int getMatBin(int iVarBin, int iDenBin, int nVarBinsIn, int nDenBinsIn);
+  int getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int nDenBinsIn);
   /// Map density and temp bin indices onto a linearised index
   /// with default parameters for number of bins
   int getMatBin(int iVarBin, int iDenBin){
-    return getMatBin(iVarBin,iDenBin,nVarBins,nDenBins);
+    return getMatBin(iVarBin,iDenBin,_n_temperature_bins,nDenBins);
   }
 
   /// Calculate the variable evaluated at the bin midpoints
@@ -260,18 +260,21 @@ private:
   /// Save the first tet entity handle
   moab::EntityHandle offset;
 
-  // Data members relating to binning in temperature
+  /// Name of the temperature variable
+  const std::string & _temperature_name;
 
-  /// Name of the MOOSE variable
-  std::string var_name;
-  /// Minimum value of our variable
-  double var_min;
-  /// Maximum value of our variable for binning on a linear scale
-  double var_max;
+  /// Lower bound of temperature bins
+  const Real & _temperature_min;
+
+  /// Upper bound of temperature bins
+  const Real & _temperature_max;
+
+  /// Number of temperature bins
+  const unsigned int & _n_temperature_bins;
+
   /// Fixed bin width for binning on a linear scale
   double bin_width;
-  /// Number of variable bins to use
-  unsigned int nVarBins;
+
   /// Store the temperature corresponding to the bin mipoint
   std::vector<double> midpoints;
   /// Store the relative density corresponding to the bin mipoint
