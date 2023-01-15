@@ -858,23 +858,6 @@ MoabUserObject::evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
   return result;
 }
 
-std::shared_ptr<MeshFunction>
-MoabUserObject::getMeshFunction(std::string var_name_in)
-{
-  if(meshFunctionPtrs.find(var_name_in) ==meshFunctionPtrs.end()){
-    std::string err;
-    err="No mesh function initialised for variable "+var_name_in;
-    mooseError(err);
-  }
-  if(meshFunctionPtrs[var_name_in]==nullptr){
-    std::string err;
-    err="Mesh function ptr for variable "+var_name_in + "is null";
-    mooseError(err);
-  }
-  return meshFunctionPtrs[var_name_in];
-}
-
-
 bool
 MoabUserObject::sortElemsByResults()
 {
