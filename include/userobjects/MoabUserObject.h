@@ -201,15 +201,12 @@ private:
   /// NB elems in param is a copy, localElems is a reference
   void groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::Range>& localElems);
 
-  /// Return the bin index of a given relative density
-  inline int getRelDensityBin(double value) const;
-
   /// Map density and temp bin indices onto a linearised index
-  int getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int nDenBinsIn);
+  int getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int _n_density_binsIn);
   /// Map density and temp bin indices onto a linearised index
   /// with default parameters for number of bins
   int getMatBin(int iVarBin, int iDenBin){
-    return getMatBin(iVarBin,iDenBin,_n_temperature_bins,nDenBins);
+    return getMatBin(iVarBin,iDenBin,_n_temperature_bins,_n_density_bins);
   }
 
   /// Calculate the variable evaluated at the bin midpoints
@@ -273,28 +270,32 @@ private:
   /// Number of temperature bins
   const unsigned int & _n_temperature_bins;
 
-  /// Fixed bin width for binning on a linear scale
-  double bin_width;
+  /// Temperature bin width
+  const Real _temperature_bin_width;
 
   /// Store the temperature corresponding to the bin mipoint
   std::vector<double> midpoints;
   /// Store the relative density corresponding to the bin mipoint
   std::vector<double> den_midpoints;
 
-  /// Data members relating to  binning in density
+  /// Whether elements are binned by density (in addition to temperature and block)
+  const bool _bin_by_density;
 
   /// Name of the MOOSE variable containing the density
   std::string den_var_name;
-  /// Switch to determine if we should bin by material density
-  bool binByDensity;
-  /// Minimum relative density diff
-  double rel_den_min;
-  /// Max relative density diff
-  double rel_den_max;
-  /// Relative density diff bin width
-  double rel_den_bw;
-  /// Number of relative density bins
-  unsigned int nDenBins;
+
+  /// Minimum percent change in density for defining the lower bin boundary
+  Real rel_den_min;
+
+  /// Maximum percent change in density for defining the upper bin boundary
+  Real rel_den_max;
+
+  /// Density bin width
+  Real rel_den_bw;
+
+  /// Number of density bins
+  unsigned int _n_density_bins;
+
   /// Number of distinct subdomains (e.g. vols, mats)
   unsigned int nMatBins;
 

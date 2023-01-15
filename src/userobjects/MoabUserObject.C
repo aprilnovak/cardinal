@@ -7,6 +7,7 @@
 #include "DisplacedProblem.h"
 #include "VariadicTable.h"
 #include "BinUtility.h"
+#include "UserErrorChecking.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/enum_io_package.h"
@@ -30,19 +31,20 @@ MoabUserObject::validParams()
   params.addParam<double>("length_scale", 100.,"Scale factor to convert lengths from MOOSE to MOAB. Default is from metres->centimetres.");
 
   // temperature binning
-  params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements");
+  params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements "
+    "(with a linear scale between temperature_min and tempearture_max)");
   params.addRangeCheckedParam<Real>("temperature_min", 0.0, "temperature_min >= 0.0",
     "Lower bound of temperature bins");
   params.addRequiredParam<Real>("temperature_max", "Upper bound of temperature bins");
   params.addRequiredRangeCheckedParam<unsigned int>("n_temperature_bins", "n_temperature_bins > 0",
     "Number of temperature bins");
 
-  // Density binning
-  params.addParam<std::string>("density", "", "Density variable by which to bin elements");
-  params.addParam<bool>("bin_density", false, "Determine if elements should be additionally binned by material density");
-  params.addParam<double>("rel_den_min", -0.1,"Minimum difference in density relative to original material density");
-  params.addParam<double>("rel_den_max",  0.1,"Maximum difference in density relative to original material density");
-  params.addRangeCheckedParam<unsigned int>("n_density_bins", 5, "n_density_bins > 0", "Number of relative density bins");
+  // density binning
+  params.addParam<std::string>("density", "Density variable by which to bin elements (with a linear scale "
+    "in terms of the percent change in density from initial values)");
+  params.addParam<Real>("rel_den_min", "Minimum difference in density relative to original material density");
+  params.addParam<Real>("rel_den_max", "Maximum difference in density relative to original material density");
+  params.addRangeCheckedParam<unsigned int>("n_density_bins", "n_density_bins > 0", "Number of relative density bins");
   params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
@@ -75,10 +77,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _temperature_min(getParam<Real>("temperature_min")),
   _temperature_max(getParam<Real>("temperature_max")),
   _n_temperature_bins(getParam<unsigned int>("n_temperature_bins")),
-  den_var_name(getParam<std::string>("density")),
-  rel_den_min(getParam<double>("rel_den_min")),
-  rel_den_max(getParam<double>("rel_den_max")),
-  nDenBins(getParam<unsigned int>("n_density_bins")),
+  _temperature_bin_width((_temperature_max - _temperature_min) / _n_temperature_bins),
+  _bin_by_density(isParamValid("density")),
   mat_names(getParam<std::vector<std::string> >("material_names")),
   openmc_mat_names(getParam<std::vector<std::string> >("material_openmc_names")),
   faceting_tol(getParam<double>("faceting_tol")),
@@ -92,7 +92,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   n_output(getParam<unsigned int>("n_output")),
   n_period(getParam<unsigned int>("n_skip")+1)
 {
-  std::cout << _temperature_min << std::endl;
   // Create MOAB interface
   _moab =  std::make_shared<moab::Core>();
 
@@ -102,8 +101,29 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   // Create a geom topo tool
   gtt = std::make_unique<moab::GeomTopoTool>(_moab.get());
 
-  // Set variables relating to binning
-  binByDensity = den_var_name != "";
+  if (_bin_by_density)
+  {
+    checkRequiredParam(parameters, "rel_den_min", "binning by density");
+    checkRequiredParam(parameters, "rel_den_max", "binning by density");
+    checkRequiredParam(parameters, "n_density_bins", "binning by density");
+
+    rel_den_min = getParam<Real>("rel_den_min");
+    rel_den_max = getParam<Real>("rel_den_max");
+    _n_density_bins = getParam<unsigned int>("n_density_bins");
+    den_var_name = getParam<std::string>("density");
+    rel_den_bw = (rel_den_max - rel_den_min) / _n_density_bins;
+
+    if (rel_den_max < rel_den_min)
+      paramError("rel_den_max", "'rel_den_max' must be greater than 'rel_den_min'");
+  }
+  else
+  {
+    checkUnusedParam(parameters, "rel_den_min", "not binning by density");
+    checkUnusedParam(parameters, "rel_den_max", "not binning by density");
+    checkUnusedParam(parameters, "n_density_bins", "not binning by density");
+
+    _n_density_bins = 1;
+  }
 
   // If no alternative names were provided for openmc materials
   // assume they are the same as in MOOSE
@@ -117,22 +137,17 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   if (_temperature_max <= _temperature_min)
     paramError("temperature_max", "'temperature_max' must be greater than 'temperature_min'");
 
-  bin_width = (_temperature_max-_temperature_min)/double(_n_temperature_bins);
   for (unsigned int i = 0; i < _n_temperature_bins + 1; ++i)
-    _temperature_bin_bounds.push_back(_temperature_min + i * bin_width);
+    _temperature_bin_bounds.push_back(_temperature_min + i * _temperature_bin_width);
 
   calcMidpoints();
 
-  if(binByDensity){
-    if(rel_den_max < rel_den_min){
-      mooseError("Relative density bin range is ill-defined");
-    }
+  if(_bin_by_density){
   }
   else{
     // Ignore density settings for whatever user set
     rel_den_min=-0.1;
     rel_den_max=0.1;
-    nDenBins=1;
   }
   calcDenMidpoints();
 
@@ -279,7 +294,7 @@ MoabUserObject::findMaterials()
     if(mat_ptr == nullptr)
       mooseError("Could not find material "+mat );
 
-    if(binByDensity){
+    if(_bin_by_density){
       // Sadly AD mats and non-AD mats do not inherit from same object
       auto openmc_den_ptr = std::dynamic_pointer_cast<OpenMCDensity>(mat_ptr);
       auto ad_openmc_den_ptr = std::dynamic_pointer_cast<ADOpenMCDensity>(mat_ptr);
@@ -764,7 +779,7 @@ void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_o
 
   // We shouldn't call this function until after initMOAB
   // due to timing of intialisation of MOOSE materials)
-  if(binByDensity && initialDensities.size()!=openmc_mat_names.size())
+  if(_bin_by_density && initialDensities.size()!=openmc_mat_names.size())
     mooseError("Initial densities not yet initialised.");
 
   // Set the original densities of materials
@@ -780,7 +795,7 @@ void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_o
   properties.clear();
 
   // Loop over density bins
-  for(unsigned int iDen=0; iDen<nDenBins; iDen++){
+  for(unsigned int iDen=0; iDen<_n_density_bins; iDen++){
 
     // Retrieve the relative density
     double rel_den = den_midpoints.at(iDen);
@@ -826,7 +841,7 @@ MoabUserObject::initBinningData()
 {
   // Create mesh functions for each variable we are bining by
   setMeshFunction(_temperature_name);
-  if(binByDensity){
+  if(_bin_by_density){
     setMeshFunction(den_var_name);
   }
 
@@ -936,13 +951,13 @@ MoabUserObject::sortElemsByResults()
   // Get the mesh functions for temperature and densities
   std::shared_ptr<MeshFunction> meshFunctionPtr = getMeshFunction(_temperature_name);
   std::shared_ptr<MeshFunction> denMeshFunctionPtr(nullptr);
-  if(binByDensity){
+  if(_bin_by_density){
     denMeshFunctionPtr= getMeshFunction(den_var_name);
   }
 
   // accumulate information for printing diagnostics
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
-  std::vector<unsigned int> n_density_hits(nDenBins, 0);
+  std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
 
   // Outer loop over materials
   for(unsigned int iMat=0; iMat<nMatBins; iMat++){
@@ -985,11 +1000,11 @@ MoabUserObject::sortElemsByResults()
 
   for (unsigned int i = 0; i < n_temp_hits.size(); ++i)
   {
-    auto lower_bound = _temperature_min + i * bin_width;
-    vtt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + bin_width), n_temp_hits[i]);
+    auto lower_bound = _temperature_min + i * _temperature_bin_width;
+    vtt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + _temperature_bin_width), n_temp_hits[i]);
   }
 
-  for (unsigned int i = 0; i < nDenBins; ++i)
+  for (unsigned int i = 0; i < _n_density_bins; ++i)
   {
     auto lower_bound = rel_den_min + i * rel_den_bw;
     vtd.addRow(i, std::to_string(lower_bound * 100.0) + " to " + std::to_string((lower_bound + rel_den_bw) * 100.0), n_density_hits[i]);
@@ -1000,9 +1015,9 @@ MoabUserObject::sortElemsByResults()
     _console << "Mapping of Elements to Temperature Bins:" << std::endl;
     vtt.print(_console);
 
-    if (binByDensity)
+    if (_bin_by_density)
     {
-      _console << "Mapping of Elements to Density Bins:" << std::endl;
+      _console << "\nMapping of Elements to Density Bins:" << std::endl;
       vtd.print(_console);
     }
   }
@@ -1054,7 +1069,7 @@ MoabUserObject::getTemperatureBin(const Point & pt) const
 int
 MoabUserObject::getDensityBin(const Point & p, const int & iMat) const
 {
-  if (!binByDensity)
+  if (!_bin_by_density)
     return 0;
 
   // Evaluate the density mesh function on this point
@@ -1121,7 +1136,7 @@ MoabUserObject::findSurfaces()
       std::string mat_name = "mat:"+openmc_mat_names.at(iMat);
 
       // Loop over density bins
-      for(unsigned int iDen=0; iDen<nDenBins; iDen++){
+      for(unsigned int iDen=0; iDen<_n_density_bins; iDen++){
 
         // Loop over temperature bins
         for(unsigned int iVar=0; iVar<_n_temperature_bins; iVar++){
@@ -1290,7 +1305,7 @@ MoabUserObject::groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::R
 void
 MoabUserObject::resetContainers()
 {
-  unsigned int nSortBins = nMatBins*nDenBins*_n_temperature_bins;
+  unsigned int nSortBins = nMatBins*_n_density_bins*_n_temperature_bins;
   sortedElems.clear();
   sortedElems.resize(nSortBins);
 
@@ -1334,13 +1349,7 @@ MoabUserObject::calcMidpoints()
 void
 MoabUserObject::calcMidpointsLin()
 {
-  calcMidpointsLin(_temperature_min,bin_width,_n_temperature_bins,midpoints);
-}
-
-inline int
-MoabUserObject::getRelDensityBin(double value) const
-{
-  return int(floor((value-rel_den_min)/rel_den_bw));
+  calcMidpointsLin(_temperature_min,_temperature_bin_width,_n_temperature_bins,midpoints);
 }
 
 int
@@ -1351,7 +1360,7 @@ MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
     std::string err = "Material index is out of range";
     mooseError(err);
   }
-  if(iDenBin<0 || iDenBin >= nDenBins ){
+  if(iDenBin<0 || iDenBin >= _n_density_bins ){
     std::string err = "Relative density of material "+
       mat_names.at(iMat)+" fell outside of binning range";
     mooseError(err);
@@ -1360,8 +1369,8 @@ MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
   if (iVarBin < 0 || iVarBin >= _n_temperature_bins )
     mooseError("Variable '", _temperature_name, "' fell outside of binning range!");
 
-  int nSortBins = nMatBins*nDenBins*_n_temperature_bins;
-  int iSortBin= _n_temperature_bins*(nDenBins*iMat + iDenBin) + iVarBin;
+  int nSortBins = nMatBins*_n_density_bins*_n_temperature_bins;
+  int iSortBin= _n_temperature_bins*(_n_density_bins*iMat + iDenBin) + iVarBin;
 
   if(iSortBin<0 || iSortBin >= nSortBins){
     mooseError("Cannot find bin index.");
@@ -1370,10 +1379,10 @@ MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
 }
 
 int
-MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int nDenBinsIn)
+MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int _n_density_binsIn)
 {
 
-  if(iDenBin<0 || iDenBin >= nDenBinsIn ){
+  if(iDenBin<0 || iDenBin >= _n_density_binsIn ){
     std::string err = "Relative density of material fell outside of binning range";
     mooseError(err);
   }
@@ -1382,7 +1391,7 @@ MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, in
     mooseError(err);
   }
 
-  int nMatBins = nDenBinsIn*_n_temperature_bins;
+  int nMatBins = _n_density_binsIn*_n_temperature_bins;
   int iMatBin= n_temperature_binsIn*iDenBin + iVarBin;
   if(iMatBin<0 || iMatBin >= nMatBins){
     mooseError("Cannot find material bin index.");
@@ -1393,12 +1402,11 @@ MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, in
 void
 MoabUserObject::calcDenMidpoints()
 {
-  rel_den_bw = (rel_den_max-rel_den_min)/double(nDenBins);
 
-  for (unsigned int i = 0; i < nDenBins + 1; ++i)
+  for (unsigned int i = 0; i < _n_density_bins + 1; ++i)
     _density_bin_bounds.push_back(rel_den_min + i * rel_den_bw);
 
-  calcMidpointsLin(rel_den_min,rel_den_bw,nDenBins,den_midpoints);
+  calcMidpointsLin(rel_den_min,rel_den_bw,_n_density_bins,den_midpoints);
 }
 
 void
@@ -1513,7 +1521,7 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
 
   // Create the graveyard set
   moab::EntityHandle graveyard;
-  unsigned int id = nMatBins*_n_temperature_bins*nDenBins+1;
+  unsigned int id = nMatBins*_n_temperature_bins*_n_density_bins+1;
   std::string mat_name = "mat:Graveyard";
   rval = createGroup(id,mat_name,graveyard);
   if(rval != moab::MB_SUCCESS) return rval;
