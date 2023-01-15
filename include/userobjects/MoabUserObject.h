@@ -7,15 +7,9 @@
 #include "moab/Skinner.hpp"
 #include "moab/GeomTopoTool.hpp"
 #include "MBTagConventions.hpp"
+#include "libmesh/mesh_function.h"
 
-#include <libmesh/elem.h>
-#include <libmesh/enum_io_package.h>
-#include <libmesh/enum_order.h>
-#include <libmesh/enum_fe_family.h>
-#include <libmesh/equation_systems.h>
-#include <libmesh/system.h>
-#include <libmesh/mesh_tools.h>
-#include <libmesh/mesh_function.h>
+// TODO: see what I can make const
 
 /// Convenience struct
 struct MOABMaterialProperties{
@@ -42,10 +36,20 @@ class MoabUserObject : public GeneralUserObject
 
   virtual void initialize() override;
 
-  /// Override MOOSE virtual method to do nothing
-  virtual void finalize(){};
-  /// Override MOOSE virtual method to do nothing
-  virtual void threadJoin(const UserObject & /*uo*/){};
+  virtual void finalize() override {};
+
+  virtual void threadJoin(const UserObject & /*uo*/) override {};
+
+  /**
+   * Get the bin index for the binning variable
+   * @param[in] p point to evaluate
+   * @return variable bin index
+   */
+  virtual int getVariableBin(const Point & p) const;
+
+  virtual int getDensityBin(const Point & p, const int & iMat) const;
+
+  virtual const std::vector< std::set<SubdomainID> > & getMaterialBlocks() const { return mat_blocks; }
 
   /// Intialise objects needed to perform binning of elements
   void initBinningData();
@@ -63,7 +67,12 @@ class MoabUserObject : public GeneralUserObject
                              std::vector<MOABMaterialProperties>& properties);
 
   /// Publically available pointer to MOAB interface
-  std::shared_ptr<moab::Interface> moabPtr;
+  std::shared_ptr<moab::Interface> _moab;
+
+  /// Map material, density and temp bin indices onto a linearised index
+  /// with default parameters for number of bins
+  int getBin(int iVarBin, int iDenBin, int iMat) const;
+
 
 protected:
   const bool & _build_graveyard;
@@ -173,7 +182,7 @@ private:
 
   /// Evaluate a mesh function at a point
   double evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
-                          const Point& p);
+                          const Point& p) const;
 
   /// Fetch the mesh function associated with a variable
   std::shared_ptr<MeshFunction> getMeshFunction(std::string var_name_in);
@@ -188,23 +197,11 @@ private:
   /// NB elems in param is a copy, localElems is a reference
   void groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::Range>& localElems);
 
-  /// Given a value of our variable, find what bin this corresponds to.
-  int getResultsBin(double value);
   /// Find results bin if we have linear binning
-  inline int getResultsBinLin(double value);
-    /// Find results bin if we have logarithmic
-  int getResultsBinLog(double value);
-  /// Return the bin index of a given relative density
-  inline int getRelDensityBin(double value);
+  inline int getLinearBin(double value) const;
 
-  /// Map material, density and temp bin indices onto a linearised index
-  int getSortBin(int iVarBin, int iDenBin, int iMat,
-                 int nVarBinsIn, int nDenBinsIn,int nMatsIn);
-  /// Map material, density and temp bin indices onto a linearised index
-  /// with default parameters for number of bins
-  int getSortBin(int iVarBin, int iDenBin, int iMat){
-    return getSortBin(iVarBin,iDenBin,iMat,nVarBins,nDenBins,nMatBins);
-  }
+  /// Return the bin index of a given relative density
+  inline int getRelDensityBin(double value) const;
 
   /// Map density and temp bin indices onto a linearised index
   int getMatBin(int iVarBin, int iDenBin, int nVarBinsIn, int nDenBinsIn);
@@ -218,8 +215,6 @@ private:
   void calcMidpoints();
   /// Calculate the variable evaluated at the bin midpoints for linear binning
   void calcMidpointsLin();
-  /// Calculate the variable evaluated at the bin midpoints for log binning
-  void calcMidpointsLog();
   /// Calculate the density evaluated at the bin midpoints
   void calcDenMidpoints();
 
@@ -271,24 +266,14 @@ private:
   std::string var_name;
   /// Whether or not to perform binning
   bool binElems;
-  /// Whether or not to bin in a log scale
-  bool logscale;
   /// Minimum value of our variable
   double var_min;
   /// Maximum value of our variable for binning on a linear scale
   double var_max;
   /// Fixed bin width for binning on a linear scale
   double bin_width;
-  /// Minimum power of 10
-  int powMin;
-  /// Maximum power of 10
-  int powMax;
   /// Number of variable bins to use
   unsigned int nVarBins;
-  /// Number of powers of 10 to bin in for binning on a log scale
-  unsigned int nPow;
-  /// Number of minor divisions for binning on a log scale
-  unsigned int nMinor;
   /// Store the temperature corresponding to the bin mipoint
   std::vector<double> midpoints;
   /// Store the relative density corresponding to the bin mipoint
@@ -387,4 +372,6 @@ private:
   unsigned int n_write;
   /// Store the number of times writeSurfaces is called
   unsigned int n_its;
+
+  const int INVALID_POINT_LOCATOR = -1;
 };
