@@ -42,7 +42,7 @@ MoabUserObject::validParams()
   params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
-  params.addParam<std::vector<std::string> >("material_names", std::vector<std::string>(), "List of MOOSE material names");
+  params.addRequiredParam<std::vector<std::string> >("material_names", "List of MOOSE material names");
   params.addParam<std::vector<std::string> >("material_openmc_names", std::vector<std::string>(), "List of OpenMC material names");
 
   // Dagmc params
@@ -99,47 +99,44 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   gtt = std::make_unique<moab::GeomTopoTool>(_moab.get());
 
   // Set variables relating to binning
-  binElems = !( var_name == "" || mat_names.empty());
-  binByDensity = !( den_var_name == "" || !binElems );
+  binByDensity = den_var_name != "";
 
-  if (binElems) std::cout << "bin by var" << std::endl;
+  std::cout << "bin by var" << std::endl;
   if (binByDensity) std::cout << "bin by density" << std::endl;
 
-  if(binElems){
-    _console << "Binning space with " << nVarBins << " bins between " << Moose::stringify(var_min) <<
-      " and " << Moose::stringify(var_max) << std::endl;
+  _console << "Binning space with " << nVarBins << " bins between " << Moose::stringify(var_min) <<
+    " and " << Moose::stringify(var_max) << std::endl;
 
-    // If no alternative names were provided for openmc materials
-    // assume they are the same as in MOOSE
-    if(openmc_mat_names.empty()){
-      openmc_mat_names = mat_names;
-    }
-    if(openmc_mat_names.size() != mat_names.size() ){
-      mooseError("If both are provided, the vectors material_names and material_openmc_names should have identical lengths.");
-    }
-
-    if(var_max <= var_min){
-      mooseError("Please pick a value for var_max > var_min");
-    }
-    bin_width = (var_max-var_min)/double(nVarBins);
-    calcMidpoints();
-
-    if(binByDensity){
-      if(rel_den_max < rel_den_min){
-        mooseError("Relative density bin range is ill-defined");
-      }
-      if(nDenBins < 1){
-        mooseError("Number of density bins must exceed 0.");
-      }
-    }
-    else{
-      // Ignore density settings for whatever user set
-      rel_den_min=-0.1;
-      rel_den_max=0.1;
-      nDenBins=1;
-    }
-    calcDenMidpoints();
+  // If no alternative names were provided for openmc materials
+  // assume they are the same as in MOOSE
+  if(openmc_mat_names.empty()){
+    openmc_mat_names = mat_names;
   }
+  if(openmc_mat_names.size() != mat_names.size() ){
+    mooseError("If both are provided, the vectors material_names and material_openmc_names should have identical lengths.");
+  }
+
+  if(var_max <= var_min){
+    mooseError("Please pick a value for var_max > var_min");
+  }
+  bin_width = (var_max-var_min)/double(nVarBins);
+  calcMidpoints();
+
+  if(binByDensity){
+    if(rel_den_max < rel_den_min){
+      mooseError("Relative density bin range is ill-defined");
+    }
+    if(nDenBins < 1){
+      mooseError("Number of density bins must exceed 0.");
+    }
+  }
+  else{
+    // Ignore density settings for whatever user set
+    rel_den_min=-0.1;
+    rel_den_max=0.1;
+    nDenBins=1;
+  }
+  calcDenMidpoints();
 
   if(scalefactor_inner < 1.0){
     mooseError("Please set graveyard_scale_inner to a value greater than 1");
@@ -268,10 +265,6 @@ MoabUserObject::setSolution(std::string var_now,std::vector< double > &results, 
 void
 MoabUserObject::findMaterials()
 {
-
-  // Don't need to do this step if we are not performing binning
-  if(!binElems) return;
-
   // Clear any prior data.
   mat_blocks.clear();
   initialDensities.clear();
@@ -846,10 +839,8 @@ MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsig
 }
 
 void
-MoabUserObject::initBinningData(){
-  // Don't attempt to bin results if we haven't been provided with a variable
-  if(!binElems) return;
-
+MoabUserObject::initBinningData()
+{
   // Create mesh functions for each variable we are bining by
   setMeshFunction(var_name);
   if(binByDensity){
@@ -956,9 +947,6 @@ MoabUserObject::getMeshFunction(std::string var_name_in)
 bool
 MoabUserObject::sortElemsByResults()
 {
-  // Don't attempt to bin results if we haven't been provided with a variable
-  if(!binElems) return false;
-
    // Clear any prior data;
   resetContainers();
 

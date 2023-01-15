@@ -264,8 +264,6 @@ private:
 
   /// Name of the MOOSE variable
   std::string var_name;
-  /// Whether or not to perform binning
-  bool binElems;
   /// Minimum value of our variable
   double var_min;
   /// Maximum value of our variable for binning on a linear scale
