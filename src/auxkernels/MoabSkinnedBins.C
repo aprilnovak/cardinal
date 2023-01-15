@@ -53,22 +53,22 @@ Real
 MoabSkinnedBins::computeValue()
 {
   if (_skin_by == "variable")
-    return variableBin();
+    return temperatureBin();
   else if (_skin_by == "material")
     return materialBin();
   else if (_skin_by == "density")
     return densityBin();
   else if (_skin_by == "all")
-    return _skinner->getBin(variableBin(), densityBin(), materialBin());
+    return _skinner->getBin(temperatureBin(), densityBin(), materialBin());
   else
     mooseError("Unhandled skin_type enum in MoabSkinnedBins!");
 }
 
 int
-MoabSkinnedBins::variableBin() const
+MoabSkinnedBins::temperatureBin() const
 {
   Point pt = _current_elem->vertex_average();
-  return _skinner->getVariableBin(pt);
+  return _skinner->getTemperatureBin(pt);
 }
 
 int

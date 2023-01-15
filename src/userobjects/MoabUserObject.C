@@ -6,6 +6,7 @@
 #include "ADOpenMCDensity.h"
 #include "DisplacedProblem.h"
 #include "VariadicTable.h"
+#include "BinUtility.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/enum_io_package.h"
@@ -30,9 +31,9 @@ MoabUserObject::validParams()
 
   // temperature binning
   params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements");
-  params.addRangeCheckedParam<double>("temperature_min", 0.0, "temperature_min >= 0.0",
+  params.addRangeCheckedParam<Real>("temperature_min", 0.0, "temperature_min >= 0.0",
     "Lower bound of temperature bins");
-  params.addRequiredParam<double>("temperature_max", "Upper bound of temperature bins");
+  params.addRequiredParam<Real>("temperature_max", "Upper bound of temperature bins");
   params.addRequiredRangeCheckedParam<unsigned int>("n_temperature_bins", "n_temperature_bins > 0",
     "Number of temperature bins");
 
@@ -41,14 +42,13 @@ MoabUserObject::validParams()
   params.addParam<bool>("bin_density", false, "Determine if elements should be additionally binned by material density");
   params.addParam<double>("rel_den_min", -0.1,"Minimum difference in density relative to original material density");
   params.addParam<double>("rel_den_max",  0.1,"Maximum difference in density relative to original material density");
-  params.addParam<unsigned int>("n_density_bins", 5, "Number of relative density bins");
+  params.addRangeCheckedParam<unsigned int>("n_density_bins", 5, "n_density_bins > 0", "Number of relative density bins");
   params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
   params.addRequiredParam<std::vector<std::string> >("material_names", "List of MOOSE material names");
   params.addParam<std::vector<std::string> >("material_openmc_names", std::vector<std::string>(), "List of OpenMC material names");
 
-  // Dagmc params
   params.addParam<double>("faceting_tol",1.e-4,"Faceting tolerance for DagMC");
   params.addParam<double>("geom_tol",1.e-6,"Geometry tolerance for DagMC");
   params.addParam<double>("graveyard_scale_inner",1.01,"Graveyard inner surface scalefactor relative to aligned bounding box.");
@@ -65,7 +65,6 @@ MoabUserObject::validParams()
   return params;
 }
 
-// TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   GeneralUserObject(parameters),
   _verbose(getParam<bool>("verbose")),
@@ -73,8 +72,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   _temperature_name(getParam<std::string>("temperature")),
-  _temperature_min(getParam<double>("temperature_min")),
-  _temperature_max(getParam<double>("temperature_max")),
+  _temperature_min(getParam<Real>("temperature_min")),
+  _temperature_max(getParam<Real>("temperature_max")),
   _n_temperature_bins(getParam<unsigned int>("n_temperature_bins")),
   den_var_name(getParam<std::string>("density")),
   rel_den_min(getParam<double>("rel_den_min")),
@@ -93,6 +92,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   n_output(getParam<unsigned int>("n_output")),
   n_period(getParam<unsigned int>("n_skip")+1)
 {
+  std::cout << _temperature_min << std::endl;
   // Create MOAB interface
   _moab =  std::make_shared<moab::Core>();
 
@@ -104,9 +104,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
 
   // Set variables relating to binning
   binByDensity = den_var_name != "";
-
-  std::cout << "bin by var" << std::endl;
-  if (binByDensity) std::cout << "bin by density" << std::endl;
 
   // If no alternative names were provided for openmc materials
   // assume they are the same as in MOOSE
@@ -121,14 +118,14 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     paramError("temperature_max", "'temperature_max' must be greater than 'temperature_min'");
 
   bin_width = (_temperature_max-_temperature_min)/double(_n_temperature_bins);
+  for (unsigned int i = 0; i < _n_temperature_bins + 1; ++i)
+    _temperature_bin_bounds.push_back(_temperature_min + i * bin_width);
+
   calcMidpoints();
 
   if(binByDensity){
     if(rel_den_max < rel_den_min){
       mooseError("Relative density bin range is ill-defined");
-    }
-    if(nDenBins < 1){
-      mooseError("Number of density bins must exceed 0.");
     }
   }
   else{
@@ -160,6 +157,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   // Set variables relating to writing to file
   n_write=0;
   n_its=0;
+  std::cout << "done with constructor" << std::endl;
 }
 
 MeshBase&
@@ -226,7 +224,7 @@ MoabUserObject::execute()
   // Re-initialise the mesh data
   initialize();
 
-  // Sort libMesh elements into bins of the specified variable
+  // Sort libMesh elements into bins
   sortElemsByResults();
 
   // Find the surfaces of local temperature regions
@@ -234,7 +232,6 @@ MoabUserObject::execute()
   std::cout << "done executing" << std::endl;
 }
 
-// Pass the results for named variable into the libMesh systems solution
 bool
 MoabUserObject::setSolution(std::string var_now,std::vector< double > &results, double scaleFactor,bool isErr,bool normToVol)
 {
@@ -279,9 +276,8 @@ MoabUserObject::findMaterials()
     // Look for the material
     std::shared_ptr< MaterialBase > mat_ptr = _fe_problem.getMaterial(mat, Moose::BLOCK_MATERIAL_DATA);
 
-    if(mat_ptr == nullptr){
+    if(mat_ptr == nullptr)
       mooseError("Could not find material "+mat );
-    }
 
     if(binByDensity){
       // Sadly AD mats and non-AD mats do not inherit from same object
@@ -312,18 +308,11 @@ MoabUserObject::findMaterials()
       // Check that all the blocks are unique and have appropriate values
       unsigned int nblks_before = unique_blocks.size();
       unsigned int nblks_new = blocks.size();
-      for(const auto blk: blocks){
-        //if(blk < 1 || blk > maxBlockID){
-        //  std::string errmsg="Block ID "+std::to_string(blk)+" for material "+mat
-        //    +" is inconsistent with mesh (max subdomains = "
-        //    +std::to_string(maxBlockID)+")";
-        //    mooseError(errmsg);
-        //}
+      for (const auto blk: blocks)
         unique_blocks.insert(blk);
-      }
-      if(unique_blocks.size() != (nblks_before+nblks_new) ){
+
+      if(unique_blocks.size() != (nblks_before+nblks_new) )
         mooseError("Some blocks appear in more than one material.");
-      }
     }
 
     // Save list
@@ -333,13 +322,11 @@ MoabUserObject::findMaterials()
   // Save number of materials
   nMatBins = mat_blocks.size();
 
-  if(nMatBins == 0){
+  if(nMatBins == 0)
     mooseError("No materials were found.");
-  }
-  if(unique_blocks.empty()){
-    mooseError("No blocks were found. Please assign at least one block to a material.");
-  }
 
+  if(unique_blocks.empty())
+    mooseError("No blocks were found. Please assign at least one block to a material.");
 }
 
 moab::ErrorCode
@@ -406,9 +393,8 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     // Get all sub-tetrahedra node sets for this element type
     ElemType type = elem.type();
     std::vector< std::vector<unsigned int> > nodeSets;
-    if(!getTetSets(type,nodeSets)){
+    if(!getTetSets(type,nodeSets))
       mooseError("Could not find element (sub-)tetrahedra");
-    }
 
     // Fetch ID
     dof_id_type id = elem.id();
@@ -416,16 +402,14 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     // Get the connectivity
     std::vector< dof_id_type > conn_libmesh;
     elem.connectivity(0,libMesh::IOPackage::VTK,conn_libmesh);
-    if(conn_libmesh.size()!=elem.n_nodes()){
+    if(conn_libmesh.size()!=elem.n_nodes())
       mooseError("Element connectivity is inconsistent");
-    }
 
     // Loop over sub tets
     for(const auto& nodeSet: nodeSets){
 
-      if(nodeSet.size() != nNodesPerTet){
+      if(nodeSet.size() != nNodesPerTet)
         mooseError("Wrong number of elements for sub-tetrahedron");
-      }
 
       // Set MOAB connectivity
       std::vector<moab::EntityHandle> conn(nNodesPerTet);
@@ -434,15 +418,14 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
         // Get the elem node index of the ith node of the sub-tet
         unsigned int nodeIndex = nodeSet.at(iNode);
 
-        if(nodeIndex >= conn_libmesh.size()){
+        if(nodeIndex >= conn_libmesh.size())
           mooseError("Element index is out of range");
-        }
 
         // Get node's entity handle
         if(node_id_to_handle.find(conn_libmesh.at(nodeIndex)) ==
-           node_id_to_handle.end()){
+           node_id_to_handle.end())
           mooseError("Could not find node entity handle");
-        }
+
         conn[iNode]=node_id_to_handle[conn_libmesh.at(nodeIndex)];
       }
 
@@ -517,7 +500,6 @@ MoabUserObject::getTetSets(ElemType type,
 moab::ErrorCode
 MoabUserObject::createTags()
 {
-
   // Create some tags for later use
   moab::ErrorCode rval = moab::MB_SUCCESS;
 
@@ -679,9 +661,9 @@ MoabUserObject::clearElemMaps()
 void
 MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
 {
-  if(_id_to_elem_handles.find(id)==_id_to_elem_handles.end()){
+  if(_id_to_elem_handles.find(id)==_id_to_elem_handles.end())
     _id_to_elem_handles[id]=std::vector<moab::EntityHandle>();
-  }
+
   (_id_to_elem_handles[id]).push_back(ent);
 }
 
@@ -958,6 +940,7 @@ MoabUserObject::sortElemsByResults()
     denMeshFunctionPtr= getMeshFunction(den_var_name);
   }
 
+  // accumulate information for printing diagnostics
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
 
   // Outer loop over materials
@@ -984,7 +967,7 @@ MoabUserObject::sortElemsByResults()
 
         int iDenBin = getDensityBin(p, iMat);
 
-        int iBin = getVariableBin(p);
+        int iBin = getTemperatureBin(p);
         n_temp_hits[iBin] += 1;
 
         // Sort elem into a bin
@@ -995,13 +978,13 @@ MoabUserObject::sortElemsByResults()
     }
   }
 
-  VariadicTable<unsigned int, Real, Real, unsigned int>
-    vt({"Bin", "Lower Bound", "Upper Bound", "Number of Elems"});
+  VariadicTable<unsigned int, std::string, unsigned int>
+    vt({"Bin", "Range", "Number of Elems"});
 
   for (unsigned int i = 0; i < n_temp_hits.size(); ++i)
   {
     auto lower_bound = _temperature_min + i * bin_width;
-    vt.addRow(i, lower_bound, lower_bound + bin_width, n_temp_hits[i]);
+    vt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + bin_width), n_temp_hits[i]);
   }
 
   if (_verbose)
@@ -1036,13 +1019,22 @@ MoabUserObject::sortElemsByResults()
 }
 
 int
-MoabUserObject::getVariableBin(const Point & p) const
+MoabUserObject::getTemperatureBin(const Point & pt) const
 {
-  // Evaluate the mesh function on this point
-  double result = evalMeshFunction(meshFunctionPtrs.at(_temperature_name), p);
+  auto value = evalMeshFunction(meshFunctionPtrs.at(_temperature_name), pt);
 
-  // Calculate the bin number for this value
-  return getLinearBin(result);
+  // TODO: add option to truncate instead
+  if (value < _temperature_min)
+    mooseError("Variable '", _temperature_name, "' has value below minimum range of bins. "
+      "Please decrease 'temperature_min'.\n\n"
+      "  value: ", value, "\n  temperature_min: ", _temperature_min);
+
+  if (value > _temperature_max)
+    mooseError("Variable '", _temperature_name, "' has value above maximum range of bins. "
+      "Please increase 'temperature_max'.\n\n"
+      "  value: ", value, "\n  temperature_max: ", _temperature_max);
+
+  return bin_utility::linearBin(value, _temperature_bin_bounds);
 }
 
 int
@@ -1308,23 +1300,6 @@ MoabUserObject::reset()
   surfsToVols.clear();
 }
 
-int
-MoabUserObject::getLinearBin(double value) const
-{
-  // TODO: probably want to just truncate
-  if (value < _temperature_min)
-    mooseError("Variable '", _temperature_name, "' has value below minimum range of bins. "
-      "Please decrease 'temperature_min'.\n\n"
-      "  value: ", value, "\n  temperature_min: ", _temperature_min);
-
-  if (value > _temperature_max)
-    mooseError("Variable '", _temperature_name, "' has value above maximum range of bins. "
-      "Please increase 'temperature_max'.\n\n"
-      "  value: ", value, "\n  temperature_max: ", _temperature_max);
-
-  return floor((value - _temperature_min) / bin_width);
-}
-
 void
 MoabUserObject::calcMidpoints()
 {
@@ -1402,7 +1377,7 @@ void
 MoabUserObject::calcMidpointsLin(double temperature_min_in, double bin_width_in,int nbins_in,std::vector<double>& midpoints_in)
 {
   double var_now = temperature_min_in - bin_width_in/2.0;
-  for(unsigned int iVar=0; iVar<nbins_in; iVar++)
+  for(unsigned int i=0; i<nbins_in; i++)
   {
     var_now += bin_width_in;
     midpoints_in.push_back(var_now);

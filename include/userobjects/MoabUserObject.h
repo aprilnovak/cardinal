@@ -42,10 +42,10 @@ class MoabUserObject : public GeneralUserObject
 
   /**
    * Get the bin index for the binning variable
-   * @param[in] p point to evaluate
+   * @param[in] pt point
    * @return variable bin index
    */
-  virtual int getVariableBin(const Point & p) const;
+  virtual int getTemperatureBin(const Point & pt) const;
 
   virtual int getDensityBin(const Point & p, const int & iMat) const;
 
@@ -75,6 +75,7 @@ class MoabUserObject : public GeneralUserObject
 
 
 protected:
+
   /// Whether to print diagnostic information
   const bool & _verbose;
 
@@ -199,9 +200,6 @@ private:
   /// Group a given bin into local regions
   /// NB elems in param is a copy, localElems is a reference
   void groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::Range>& localElems);
-
-  /// Find results bin if we have linear binning
-  inline int getLinearBin(double value) const;
 
   /// Return the bin index of a given relative density
   inline int getRelDensityBin(double value) const;
@@ -376,6 +374,8 @@ private:
   unsigned int n_write;
   /// Store the number of times writeSurfaces is called
   unsigned int n_its;
+
+  std::vector<Real> _temperature_bin_bounds;
 
   const int INVALID_POINT_LOCATOR = -1;
 };

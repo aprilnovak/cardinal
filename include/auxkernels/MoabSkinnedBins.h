@@ -33,7 +33,7 @@ public:
 
   static InputParameters validParams();
 
-  int variableBin() const;
+  int temperatureBin() const;
   int materialBin() const;
   int densityBin() const;
 
