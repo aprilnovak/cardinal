@@ -376,6 +376,7 @@ private:
   unsigned int n_its;
 
   std::vector<Real> _temperature_bin_bounds;
+  std::vector<Real> _density_bin_bounds;
 
   const int INVALID_POINT_LOCATOR = -1;
 };

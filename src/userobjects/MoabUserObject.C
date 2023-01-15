@@ -942,6 +942,7 @@ MoabUserObject::sortElemsByResults()
 
   // accumulate information for printing diagnostics
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
+  std::vector<unsigned int> n_density_hits(nDenBins, 0);
 
   // Outer loop over materials
   for(unsigned int iMat=0; iMat<nMatBins; iMat++){
@@ -966,6 +967,7 @@ MoabUserObject::sortElemsByResults()
         Point p = elemCentroid(elem);
 
         int iDenBin = getDensityBin(p, iMat);
+        n_density_hits[iDenBin] += 1;
 
         int iBin = getTemperatureBin(p);
         n_temp_hits[iBin] += 1;
@@ -978,19 +980,31 @@ MoabUserObject::sortElemsByResults()
     }
   }
 
-  VariadicTable<unsigned int, std::string, unsigned int>
-    vt({"Bin", "Range", "Number of Elems"});
+  VariadicTable<unsigned int, std::string, unsigned int> vtt({"Bin", "Range (K)", "# Elems"});
+  VariadicTable<unsigned int, std::string, unsigned int> vtd({"Bin", "Range (\%)", "# Elems"});
 
   for (unsigned int i = 0; i < n_temp_hits.size(); ++i)
   {
     auto lower_bound = _temperature_min + i * bin_width;
-    vt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + bin_width), n_temp_hits[i]);
+    vtt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + bin_width), n_temp_hits[i]);
+  }
+
+  for (unsigned int i = 0; i < nDenBins; ++i)
+  {
+    auto lower_bound = rel_den_min + i * rel_den_bw;
+    vtd.addRow(i, std::to_string(lower_bound * 100.0) + " to " + std::to_string((lower_bound + rel_den_bw) * 100.0), n_density_hits[i]);
   }
 
   if (_verbose)
   {
     _console << "Mapping of Elements to Temperature Bins:" << std::endl;
-    vt.print(_console);
+    vtt.print(_console);
+
+    if (binByDensity)
+    {
+      _console << "Mapping of Elements to Density Bins:" << std::endl;
+      vtd.print(_console);
+    }
   }
 
   // Wait for all processes to finish
@@ -1044,16 +1058,26 @@ MoabUserObject::getDensityBin(const Point & p, const int & iMat) const
     return 0;
 
   // Evaluate the density mesh function on this point
-  double den_result = evalMeshFunction(meshFunctionPtrs.at(den_var_name), p);
+  double density = evalMeshFunction(meshFunctionPtrs.at(den_var_name), p);
 
   // Get the initial density for this material
-  double initial_den = initialDensities.at(iMat);
+  double initial_density = initialDensities.at(iMat);
 
   // Get the relative difference in density
-  double rel_den = den_result / initial_den - 1.0;
+  double value = density / initial_density - 1.0;
 
-  // Get the relative density bin number
-  return getRelDensityBin(rel_den);
+  // TODO: add option to truncate instead
+  if (value < rel_den_min)
+    mooseError("Variable '", den_var_name, "' has relative value below minimum range of bins. "
+      "Please decrease 'rel_den_min'.\n\n"
+      "  value: ", value, "\n  rel_den_min: ", rel_den_min);
+
+  if (value > rel_den_max)
+    mooseError("Variable '", den_var_name, "' has value above maximum range of bins. "
+      "Please increase 'rel_den_max'.\n\n"
+      "  value: ", value, "\n  rel_den_max: ", rel_den_max);
+
+  return bin_utility::linearBin(value, _density_bin_bounds);
 }
 
 Point
@@ -1370,6 +1394,10 @@ void
 MoabUserObject::calcDenMidpoints()
 {
   rel_den_bw = (rel_den_max-rel_den_min)/double(nDenBins);
+
+  for (unsigned int i = 0; i < nDenBins + 1; ++i)
+    _density_bin_bounds.push_back(rel_den_min + i * rel_den_bw);
+
   calcMidpointsLin(rel_den_min,rel_den_bw,nDenBins,den_midpoints);
 }
 

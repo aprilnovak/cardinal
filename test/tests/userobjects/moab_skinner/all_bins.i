@@ -114,6 +114,7 @@
 [UserObjects]
   [moab]
     type = MoabUserObject
+    verbose = true
     material_names = "mat2 mat1"
 
     density = "rho"
