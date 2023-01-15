@@ -114,14 +114,16 @@
 [UserObjects]
   [moab]
     type = MoabUserObject
-    temperature = "temp"
     material_names = "mat2 mat1"
+
     density = "rho"
-    n_bins = 5
-    var_min = 400.0
-    var_max = 650.0
     rel_den_min = -0.5
     rel_den_max =  0.5
+
+    temperature = "temp"
+    temperature_min = 400.0
+    temperature_max = 650.0
+    n_temperature_bins = 5
 
     output_skins = true
   []

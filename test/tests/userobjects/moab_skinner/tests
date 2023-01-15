@@ -20,4 +20,28 @@
     requirement = "The system shall bin elements according to a variable value and a density value, on multiple material blocks, and be able to visualize the bins."
     required_objects = 'DagMCPostprocessor'
   []
+  [invalid_max]
+    type = RunException
+    input = var_bins.i
+    cli_args = 'UserObjects/moab/temperature_max=350.0'
+    expect_err = "'temperature_max' must be greater than 'temperature_min'"
+    requirement = "The system shall error if the maximum temperature is lower than the minimum temperature for the bins"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [too_low]
+    type = RunException
+    input = var_bins.i
+    cli_args = 'UserObjects/moab/temperature_min=550.0'
+    expect_err = "Variable 'temp' has value below minimum range of bins. Please decrease 'temperature_min'."
+    requirement = "The system shall error if the temperature is below the minimum bin bound"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [too_high]
+    type = RunException
+    input = var_bins.i
+    cli_args = 'UserObjects/moab/temperature_max=550.0'
+    expect_err = "Variable 'temp' has value above maximum range of bins. Please increase 'temperature_max'."
+    requirement = "The system shall error if the temperature is above the maximum bin bound"
+    required_objects = 'DagMCPostprocessor'
+  []
 []

@@ -59,11 +59,13 @@
 [UserObjects]
   [moab]
     type = MoabUserObject
-    temperature = "temp"
+    verbose = true
     material_names = "mat"
-    n_bins = 5
-    var_min = 400.0
-    var_max = 650.0
+
+    temperature = "temp"
+    n_temperature_bins = 5
+    temperature_min = 400.0
+    temperature_max = 650.0
   []
 []
 

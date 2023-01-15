@@ -75,6 +75,9 @@ class MoabUserObject : public GeneralUserObject
 
 
 protected:
+  /// Whether to print diagnostic information
+  const bool & _verbose;
+
   const bool & _build_graveyard;
 
 private:

@@ -5,6 +5,7 @@
 #include "OpenMCDensity.h"
 #include "ADOpenMCDensity.h"
 #include "DisplacedProblem.h"
+#include "VariadicTable.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/enum_io_package.h"
@@ -20,6 +21,7 @@ InputParameters
 MoabUserObject::validParams()
 {
   InputParameters params = GeneralUserObject::validParams();
+  params.addParam<bool>("verbose", false, "Whether to print diagnostic information");
 
   params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
 
@@ -66,6 +68,7 @@ MoabUserObject::validParams()
 // TO-DO automate the supplying of materials
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   GeneralUserObject(parameters),
+  _verbose(getParam<bool>("verbose")),
   _build_graveyard(getParam<bool>("build_graveyard")),
   lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
@@ -955,6 +958,8 @@ MoabUserObject::sortElemsByResults()
     denMeshFunctionPtr= getMeshFunction(den_var_name);
   }
 
+  std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
+
   // Outer loop over materials
   for(unsigned int iMat=0; iMat<nMatBins; iMat++){
 
@@ -980,6 +985,7 @@ MoabUserObject::sortElemsByResults()
         int iDenBin = getDensityBin(p, iMat);
 
         int iBin = getVariableBin(p);
+        n_temp_hits[iBin] += 1;
 
         // Sort elem into a bin
         int iSortBin = getBin(iBin,iDenBin,iMat);
@@ -987,6 +993,21 @@ MoabUserObject::sortElemsByResults()
 
       }
     }
+  }
+
+  VariadicTable<unsigned int, Real, Real, unsigned int>
+    vt({"Bin", "Lower Bound", "Upper Bound", "Number of Elems"});
+
+  for (unsigned int i = 0; i < n_temp_hits.size(); ++i)
+  {
+    auto lower_bound = _temperature_min + i * bin_width;
+    vt.addRow(i, lower_bound, lower_bound + bin_width, n_temp_hits[i]);
+  }
+
+  if (_verbose)
+  {
+    _console << "Mapping of Elements to Temperature Bins:" << std::endl;
+    vt.print(_console);
   }
 
   // Wait for all processes to finish
@@ -1292,9 +1313,14 @@ MoabUserObject::getLinearBin(double value) const
 {
   // TODO: probably want to just truncate
   if (value < _temperature_min)
-    mooseError("Variable '", _temperature_name, "' has value (", value, ") below minimum range of bins (", _temperature_min, ").");
+    mooseError("Variable '", _temperature_name, "' has value below minimum range of bins. "
+      "Please decrease 'temperature_min'.\n\n"
+      "  value: ", value, "\n  temperature_min: ", _temperature_min);
+
   if (value > _temperature_max)
-    mooseError("Variable '", _temperature_name, "' has value (", value, ") above maximum range of bins (", _temperature_max, ").");
+    mooseError("Variable '", _temperature_name, "' has value above maximum range of bins. "
+      "Please increase 'temperature_max'.\n\n"
+      "  value: ", value, "\n  temperature_max: ", _temperature_max);
 
   return floor((value - _temperature_min) / bin_width);
 }
