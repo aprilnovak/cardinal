@@ -68,4 +68,12 @@
     requirement = "The system shall error if the density is above the maximum bin bound"
     required_objects = 'DagMCPostprocessor'
   []
+  [invalid_mesh]
+    type = RunException
+    input = var_bins.i
+    cli_args = 'Mesh/sphere/file=../../neutronics/meshes/sphere.e'
+    expect_err = "The MoabUserObject can only be used with a tetrahedral \[Mesh\]!"
+    requirement = "The system shall error if the skinned mesh does not contain tetrahedral elements"
+    required_objects = 'DagMCPostprocessor'
+  []
 []

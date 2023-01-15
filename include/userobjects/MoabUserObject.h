@@ -154,8 +154,11 @@ private:
   /// Helper function to wrap moab::tag_set_data for a generic pointer
   moab::ErrorCode setTagData(moab::Tag tag, moab::EntityHandle ent, void* data);
 
-  /// Return all sets of node indices for sub-tetrahedra if we have a second order mesh
-  bool getTetSets(ElemType type, std::vector< std::vector<unsigned int> > &perms);
+  /**
+   * Get the node numberings for the MOAB TET4 elements to build for each [Mesh] element
+   * @param[in] type element type
+   */
+  const std::vector<std::vector<unsigned int>> & getTetSets(ElemType type) const;
 
   /// Build the graveyard (needed by OpenMC)
   moab::ErrorCode buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
@@ -363,6 +366,15 @@ private:
 
   /// Bounds of the density bins
   std::vector<Real> _density_bin_bounds;
+
+  /// Node ordering for a TET4 MOAB element, based on libMesh node numberings
+  std::vector<std::vector<unsigned int>> _tet4_nodes;
+
+  /**
+   * Node ordering for eight TET4 MOAB elements, based on libMesh node numberings
+   * for a TET10 element. We re-build the libMesh element into first-order MOAB elements.
+   */
+  std::vector<std::vector<unsigned int>> _tet10_nodes;
 
   const int INVALID_POINT_LOCATOR = -1;
 };

@@ -164,6 +164,17 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   n_write=0;
   n_its=0;
   std::cout << "done with constructor" << std::endl;
+
+  _tet4_nodes.push_back({0,1,2,3});
+
+  _tet10_nodes.push_back({0,4,6,7});
+  _tet10_nodes.push_back({1,5,4,8});
+  _tet10_nodes.push_back({2,6,5,9});
+  _tet10_nodes.push_back({7,8,9,3});
+  _tet10_nodes.push_back({4,9,7,8});
+  _tet10_nodes.push_back({4,5,9,8});
+  _tet10_nodes.push_back({4,7,9,6});
+  _tet10_nodes.push_back({4,9,5,6});
 }
 
 MeshBase&
@@ -288,19 +299,11 @@ MoabUserObject::findMaterials()
     if(_bin_by_density){
       // Sadly AD mats and non-AD mats do not inherit from same object
       auto openmc_den_ptr = std::dynamic_pointer_cast<OpenMCDensity>(mat_ptr);
-      auto ad_openmc_den_ptr = std::dynamic_pointer_cast<ADOpenMCDensity>(mat_ptr);
-      if(openmc_den_ptr == nullptr && ad_openmc_den_ptr == nullptr){
-        mooseError("Please use (AD)OpenMCDensity object to represent materials with dynamic densities.");
-      }
+      if(openmc_den_ptr == nullptr)
+        mooseError("Please use OpenMCDensity object to represent materials with dynamic densities.");
+
       // Retrieve initial density
-      double density=0.;
-      if(openmc_den_ptr != nullptr){
-        density = openmc_den_ptr->origDensity();
-      }
-      else if(ad_openmc_den_ptr != nullptr){
-        density = ad_openmc_den_ptr->origDensity();
-      }
-      initialDensities.push_back(density);
+      initialDensities.push_back(openmc_den_ptr->origDensity());
     }
 
     if(mat_ptr->numBlocks()==0){
@@ -398,9 +401,7 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
     // Get all sub-tetrahedra node sets for this element type
     ElemType type = elem.type();
-    std::vector< std::vector<unsigned int> > nodeSets;
-    if(!getTetSets(type,nodeSets))
-      mooseError("Could not find element (sub-)tetrahedra");
+    auto nodeSets = getTetSets(type);
 
     // Fetch ID
     dof_id_type id = elem.id();
@@ -413,9 +414,6 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
     // Loop over sub tets
     for(const auto& nodeSet: nodeSets){
-
-      if(nodeSet.size() != nNodesPerTet)
-        mooseError("Wrong number of elements for sub-tetrahedron");
 
       // Set MOAB connectivity
       std::vector<moab::EntityHandle> conn(nNodesPerTet);
@@ -466,40 +464,15 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
 }
 
-bool
-MoabUserObject::getTetSets(ElemType type,
-                           std::vector< std::vector<unsigned int> >  &perms)
+const std::vector<std::vector<unsigned int>> &
+MoabUserObject::getTetSets(ElemType type) const
 {
-  perms.clear();
-
-  // Check all the elements are tets
-  if(type!=TET4 && type!=TET10){
-    return false;
-  }
-
-  if(type==TET4){
-    perms.push_back({0,1,2,3});
-  }
-  else{ // TET10
-
-    // See libmesh cell_tet10.h for vertex labelling conventions
-
-    // One tet at each corner
-    perms.push_back({0,4,6,7});
-    perms.push_back({1,5,4,8});
-    perms.push_back({2,6,5,9});
-    perms.push_back({7,8,9,3});
-
-    // 4 tets from central octahedron (2 back-to-back square based pyramids)
-    // Central square is 4-5-9-7
-    // Arbitrary choice of diagonal: 4-9
-    perms.push_back({4,9,7,8});
-    perms.push_back({4,5,9,8});
-    perms.push_back({4,7,9,6});
-    perms.push_back({4,9,5,6});
-  }
-
-  return true;
+  if (type == TET4)
+    return _tet4_nodes;
+  else if (type == TET10)
+    return _tet10_nodes;
+  else
+    mooseError("The MoabUserObject can only be used with a tetrahedral [Mesh]!");
 }
 
 
