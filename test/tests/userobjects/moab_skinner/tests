@@ -13,4 +13,11 @@
     requirement = "The system shall bin elements according to a variable value, on multiple material blocks, and be able to visualize the bins."
     required_objects = 'DagMCPostprocessor'
   []
+  [all_bins]
+    type = Exodiff
+    input = all_bins.i
+    exodiff = all_bins_out.e
+    requirement = "The system shall bin elements according to a variable value and a density value, on multiple material blocks, and be able to visualize the bins."
+    required_objects = 'DagMCPostprocessor'
+  []
 []
