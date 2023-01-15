@@ -26,9 +26,6 @@ MoabUserObject::validParams()
 
   params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
 
-  // MOAB mesh params
-  params.addParam<double>("length_scale", 100.,"Scale factor to convert lengths from MOOSE to MOAB. Default is from metres->centimetres.");
-
   // temperature binning
   params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements "
     "(with a linear scale between temperature_min and tempearture_max)");
@@ -69,7 +66,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   GeneralUserObject(parameters),
   _verbose(getParam<bool>("verbose")),
   _build_graveyard(getParam<bool>("build_graveyard")),
-  lengthscale(getParam<double>("length_scale")),
   densityscale(getParam<double>("density_scale")),
   _temperature_name(getParam<std::string>("temperature")),
   _temperature_min(getParam<Real>("temperature_min")),
@@ -85,6 +81,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   scalefactor_outer(getParam<double>("graveyard_scale_outer")),
   _output_skins(getParam<bool>("output_skins")),
   _output_full(getParam<bool>("output_full")),
+  _scaling(1.0),
   _n_write(0)
 {
   // Create MOAB interface
@@ -144,8 +141,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   if(scalefactor_outer < scalefactor_inner){
     mooseError("Please ensure graveyard_scale_outer exceeds graveyard_scale_inner");
   }
-
-  std::cout << "done with constructor" << std::endl;
 
   _tet4_nodes.push_back({0,1,2,3});
 
@@ -340,9 +335,9 @@ MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     const Node& node = **itnode;
 
     // Fetch coords (and scale to correct units)
-    coords[0]=lengthscale*double(node(0));
-    coords[1]=lengthscale*double(node(1));
-    coords[2]=lengthscale*double(node(2));
+    coords[0]=_scaling*double(node(0));
+    coords[1]=_scaling*double(node(1));
+    coords[2]=_scaling*double(node(2));
 
     // Fetch ID
     dof_id_type id = node.id();
@@ -1448,8 +1443,8 @@ MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vec
 std::vector<Point>
 MoabUserObject::boxCoords(const BoundingBox& box, double factor)
 {
-  Point minpoint = (box.min())*lengthscale;
-  Point maxpoint = (box.max())*lengthscale;
+  Point minpoint = (box.min())*_scaling;
+  Point maxpoint = (box.max())*_scaling;
   Point diff = (maxpoint - minpoint)/2.0;
   Point origin = minpoint + diff;
 

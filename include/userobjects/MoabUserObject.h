@@ -47,6 +47,12 @@ class MoabUserObject : public GeneralUserObject
    */
   virtual int getTemperatureBin(const Point & pt) const;
 
+  /**
+   * Set the length multiplier to get from [Mesh] units into centimeters
+   * @param[in] scale multiplier
+   */
+  virtual void setScaling(const Real & scale) { _scaling = scale; }
+
   virtual int getDensityBin(const Point & p, const int & iMat) const;
 
   virtual const std::vector< std::set<SubdomainID> > & getMaterialBlocks() const { return mat_blocks; }
@@ -236,9 +242,6 @@ private:
   /// Pointer for gtt for setting surface sense
   std::unique_ptr< moab::GeomTopoTool > gtt;
 
-  /// Convert MOOSE units to dagmc length units
-  double lengthscale;
-
   /// Convert MOOSE density units to openmc density units
   double densityscale;
 
@@ -347,6 +350,9 @@ private:
 
   /// Whether to output the MOAB mesh to a .h5m file
   const bool & _output_full;
+
+  /// Length multiplier to get from [Mesh] units into OpenMC's centimeters
+  Real _scaling;
 
   /// Count number of times file has been written to
   unsigned int _n_write;
