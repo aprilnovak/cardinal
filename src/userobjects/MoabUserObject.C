@@ -142,13 +142,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
 
   calcMidpoints();
 
-  if(_bin_by_density){
-  }
-  else{
-    // Ignore density settings for whatever user set
-    rel_den_min=-0.1;
-    rel_den_max=0.1;
-  }
   calcDenMidpoints();
 
   if(scalefactor_inner < 1.0){
@@ -1088,7 +1081,7 @@ MoabUserObject::getDensityBin(const Point & p, const int & iMat) const
       "  value: ", value, "\n  rel_den_min: ", rel_den_min);
 
   if (value > rel_den_max)
-    mooseError("Variable '", den_var_name, "' has value above maximum range of bins. "
+    mooseError("Variable '", den_var_name, "' has relative value above maximum range of bins. "
       "Please increase 'rel_den_max'.\n\n"
       "  value: ", value, "\n  rel_den_max: ", rel_den_max);
 

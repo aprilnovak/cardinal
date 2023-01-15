@@ -120,6 +120,7 @@
     density = "rho"
     rel_den_min = -0.5
     rel_den_max =  0.5
+    n_density_bins = 5
 
     temperature = "temp"
     temperature_min = 400.0
