@@ -16,29 +16,20 @@
 /*                 See LICENSE for full restrictions                */
 /********************************************************************/
 
-#include "SpatialBinUserObject.h"
 #include "BinUtility.h"
 
-InputParameters
-SpatialBinUserObject::validParams()
-{
-  InputParameters params = GeneralUserObject::validParams();
-  return params;
-}
+namespace bin_utility {
 
-SpatialBinUserObject::SpatialBinUserObject(const InputParameters & parameters)
-  : ThreadedGeneralUserObject(parameters)
+unsigned int linearBin(const Real & value, const std::vector<Real> & bounds)
 {
-}
+  // This finds the first entry in the vector that is larger than what we're looking for
+  std::vector<Real>::const_iterator one_higher = std::upper_bound(bounds.begin(), bounds.end(), value);
 
-Real
-SpatialBinUserObject::spatialValue(const Point & p) const
-{
-  return bin(p);
+  if (one_higher == bounds.end())
+    return static_cast<unsigned int>(bounds.size() - 2);
+  else if (one_higher == bounds.begin())
+    return 0;
+  else
+    return static_cast<unsigned int>(std::distance(bounds.begin(), one_higher - 1));
 }
-
-unsigned int
-SpatialBinUserObject::binFromBounds(const Real & pt, const std::vector<Real> & bounds) const
-{
-  return bin_utility::linearBin(pt, bounds);
-}
+} // end namespace bin_utility
