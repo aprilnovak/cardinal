@@ -1,4 +1,20 @@
 [Tests]
+  [output_full]
+    type = CheckFiles
+    input = var_bins.i
+    check_files = 'moab_full_0.h5m moab_full_1.h5m'
+    cli_args = 'UserObjects/moab/output_full=true'
+    requirement = "The system shall output the MOAB mesh copied from libMesh"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [output_skins]
+    type = CheckFiles
+    input = var_bins.i
+    check_files = 'moab_skins_0.h5m moab_skins_1.h5m'
+    cli_args = 'UserObjects/moab/output_skins=true'
+    requirement = "The system shall output the MOAB mesh skins generated from libMesh"
+    required_objects = 'DagMCPostprocessor'
+  []
   [var_bins]
     type = Exodiff
     input = var_bins.i

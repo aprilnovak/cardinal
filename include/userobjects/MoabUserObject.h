@@ -66,7 +66,7 @@ class MoabUserObject : public GeneralUserObject
                              std::vector<std::string>& tails,
                              std::vector<MOABMaterialProperties>& properties);
 
-  /// Publically available pointer to MOAB interface
+  /// MOAB interface
   std::shared_ptr<moab::Interface> _moab;
 
   /// Map material, density and temp bin indices onto a linearised index
@@ -221,8 +221,8 @@ private:
   /// Find the surfaces for the provided range and add to group
   bool findSurface(const moab::Range& region,moab::EntityHandle group, unsigned int & vol_id, unsigned int & surf_id,moab::EntityHandle& volume_set);
 
-  /// Write to file
-  bool write();
+  /// Write MOAB volume and/or skin meshes to file
+  virtual void write();
 
   /// MPI communication of DOFs of binned elements
   void communicateDofSet(std::set<dof_id_type>& dofset);
@@ -342,22 +342,14 @@ private:
   /// Scalefactors applied to bounding box for outer surface of graveyard
   double scalefactor_outer;
 
-  // Settings to control the optional writing of surfaces to file.
+  /// Whether to output the MOAB mesh skins to a .h5m file
+  const bool & _output_skins;
 
-  /// Flag to control whether to save surface skins to file
-  bool output_skins;
-  /// Flag to control whether to output the full MOAB mesh database
-  bool output_full;
-  /// Base name of skins output file
-  std::string output_base;
-  /// Base name of full database output file
-  std::string output_base_full;
-  /// Number of times to write to file
-  unsigned int n_output;
-  /// Period of writes (skip every n_period -1)
-  unsigned int n_period;
+  /// Whether to output the MOAB mesh to a .h5m file
+  const bool & _output_full;
+
   /// Count number of times file has been written to
-  unsigned int n_write;
+  unsigned int _n_write;
   /// Store the number of times writeSurfaces is called
   unsigned int n_its;
 
