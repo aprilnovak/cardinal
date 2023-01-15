@@ -1,0 +1,16 @@
+[Tests]
+  [var_bins]
+    type = Exodiff
+    input = var_bins.i
+    exodiff = var_bins_out.e
+    requirement = "The system shall bin elements according to a variable value, on a single material block, and be able to visualize the bins."
+    required_objects = 'DagMCPostprocessor'
+  []
+  [var_mat_bins]
+    type = Exodiff
+    input = var_mat_bins.i
+    exodiff = var_mat_bins_out.e
+    requirement = "The system shall bin elements according to a variable value, on multiple material blocks, and be able to visualize the bins."
+    required_objects = 'DagMCPostprocessor'
+  []
+[]
