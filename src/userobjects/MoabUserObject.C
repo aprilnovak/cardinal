@@ -938,13 +938,6 @@ MoabUserObject::sortElemsByResults()
    // Clear any prior data;
   resetContainers();
 
-  // Get the mesh functions for temperature and densities
-  std::shared_ptr<MeshFunction> meshFunctionPtr = getMeshFunction(_temperature_name);
-  std::shared_ptr<MeshFunction> denMeshFunctionPtr(nullptr);
-  if(_bin_by_density){
-    denMeshFunctionPtr= getMeshFunction(den_var_name);
-  }
-
   // accumulate information for printing diagnostics
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
   std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
@@ -966,7 +959,6 @@ MoabUserObject::sortElemsByResults()
       for( ; itelem!=endelem; ++itelem){
 
         Elem& elem = **itelem;
-        dof_id_type id = elem.id();
 
         // Fetch the central point of this element
         Point p = elem.vertex_average();
@@ -979,7 +971,7 @@ MoabUserObject::sortElemsByResults()
 
         // Sort elem into a bin
         int iSortBin = getBin(iBin,iDenBin,iMat);
-        sortedElems.at(iSortBin).insert(id);
+        sortedElems.at(iSortBin).insert(elem.id());
 
       }
     }
@@ -1319,27 +1311,7 @@ MoabUserObject::reset()
 int
 MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
 {
-
-  if(iMat<0 || iMat >= nMatBins ){
-    std::string err = "Material index is out of range";
-    mooseError(err);
-  }
-  if(iDenBin<0 || iDenBin >= _n_density_bins ){
-    std::string err = "Relative density of material "+
-      mat_names.at(iMat)+" fell outside of binning range";
-    mooseError(err);
-  }
-
-  if (iVarBin < 0 || iVarBin >= _n_temperature_bins )
-    mooseError("Variable '", _temperature_name, "' fell outside of binning range!");
-
-  int nSortBins = nMatBins*_n_density_bins*_n_temperature_bins;
-  int iSortBin= _n_temperature_bins*(_n_density_bins*iMat + iDenBin) + iVarBin;
-
-  if(iSortBin<0 || iSortBin >= nSortBins){
-    mooseError("Cannot find bin index.");
-  }
-  return iSortBin;
+  return _n_temperature_bins * (_n_density_bins * iMat + iDenBin) + iVarBin;
 }
 
 int
