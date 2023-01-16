@@ -64,6 +64,7 @@ MoabUserObject::validParams()
 
 MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   GeneralUserObject(parameters),
+  _serialized_solution(NumericVector<Number>::build(_communicator).release()),
   _verbose(getParam<bool>("verbose")),
   _build_graveyard(getParam<bool>("build_graveyard")),
   densityscale(getParam<double>("density_scale")),
@@ -235,7 +236,8 @@ MoabUserObject::execute()
   // Clear MOAB mesh data from last timestep
   reset();
 
-  initBinningData(); // TODO: is this in the right place?
+  _serialized_solution->init(_fe_problem.getAuxiliarySystem().sys().n_dofs(), false, SERIAL);
+  _fe_problem.getAuxiliarySystem().solution().localize(*_serialized_solution);
 
   // Re-initialise the mesh data
   initialize();
@@ -723,17 +725,6 @@ MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsig
   return soln_index;
 }
 
-void
-MoabUserObject::initBinningData()
-{
-  // Create mesh functions for each variable we are bining by
-  setMeshFunction(_temperature_name);
-  if(_bin_by_density){
-    setMeshFunction(den_var_name);
-  }
-
-}
-
 NumericVector<Number>&
 MoabUserObject::getSerialisedSolution(libMesh::System* sysPtr)
 {
@@ -762,57 +753,6 @@ MoabUserObject::getSerialisedSolution(libMesh::System* sysPtr)
 }
 
 void
-MoabUserObject::setMeshFunction(std::string var_name_in)
-{
-
-  libMesh::System* sysPtr;
-  unsigned int iVarNow;
-
-  // Get the system and variable number
-  try{
-    sysPtr = &system(var_name_in);
-    iVarNow = sysPtr->variable_number(var_name_in);
-  }
-  catch(std::exception &e){
-    mooseError(e.what());
-  }
-
-  std::vector<unsigned int> var_nums(1,iVarNow);
-
-  // Fetch the serialised solution for this system
-  NumericVector<Number>& serial_solution = getSerialisedSolution(sysPtr);
-
-  // Create the mesh function
-  meshFunctionPtrs[var_name_in] =
-    std::make_shared<MeshFunction>(systems(),
-                                   serial_solution,
-                                   sysPtr->get_dof_map(),
-                                   var_nums);
-
-  // Initialise mesh function
-  meshFunctionPtrs[var_name_in]->init(Trees::BuildType::ELEMENTS);
-  meshFunctionPtrs[var_name_in]->enable_out_of_mesh_mode(-1.0);
-
-}
-
-double
-MoabUserObject::evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
-                                 const Point& p) const
-{
-  double result = (*meshFunctionPtr)(p);
-
-  if (result == INVALID_POINT_LOCATOR)
-  {
-    const PointLocatorBase& locator = meshFunctionPtr->get_point_locator();
-    const Elem * elemPtr = locator(p);
-    if (elemPtr == nullptr) // Do I need to do this? Can I just throw the error right away? Also, I'm not sure I'll ever get inside this loop, since I'm only passing in points that I know for sure are on the mesh...
-      mooseError("Point is out of mesh");
-  }
-
-  return result;
-}
-
-void
 MoabUserObject::sortElemsByResults()
 {
    // Clear any prior data
@@ -825,22 +765,22 @@ MoabUserObject::sortElemsByResults()
 
   for (unsigned int e = 0; e < _fe_problem.mesh().nElem(); ++e)
   {
-    const auto * elem = _fe_problem.mesh().queryElemPtr(e);
+    const Elem * const elem = _fe_problem.mesh().queryElemPtr(e);
     if (!elem)
       continue;
 
     Point p = elem->vertex_average();
 
     // bin by subdomain ID
-    auto iMat = _blocks.at(elem->subdomain_id());
+    auto iMat = getSubdomainBin(elem);
     n_block_hits[iMat] += 1;
 
     // bin by density
-    auto iDenBin = getDensityBin(p);
+    auto iDenBin = getDensityBin(elem);
     n_density_hits[iDenBin] += 1;
 
     // bin by temperature
-    auto iBin = getTemperatureBin(p);
+    auto iBin = getTemperatureBin(elem);
     n_temp_hits[iBin] += 1;
 
     // Sort elem into a bin
@@ -873,9 +813,10 @@ MoabUserObject::sortElemsByResults()
 }
 
 unsigned int
-MoabUserObject::getTemperatureBin(const Point & pt) const
+MoabUserObject::getTemperatureBin(const Elem * const elem) const
 {
-  auto value = evalMeshFunction(meshFunctionPtrs.at(_temperature_name), pt);
+  auto dof = elem->dof_number(_fe_problem.getAuxiliarySystem().number(), _temperature_var_num, 0);
+  auto value = (*_serialized_solution)(dof);
 
   // TODO: add option to truncate instead
   if (value < _temperature_min)
@@ -892,13 +833,13 @@ MoabUserObject::getTemperatureBin(const Point & pt) const
 }
 
 unsigned int
-MoabUserObject::getDensityBin(const Point & p) const
+MoabUserObject::getDensityBin(const Elem * const elem) const
 {
   if (!_bin_by_density)
     return 0;
 
-  // Evaluate the density mesh function on this point
-  double value = evalMeshFunction(meshFunctionPtrs.at(den_var_name), p);
+  auto dof = elem->dof_number(_fe_problem.getAuxiliarySystem().number(), _density_var_num, 0);
+  auto value = (*_serialized_solution)(dof);
 
   // TODO: add option to truncate instead
   if (value < _density_min)

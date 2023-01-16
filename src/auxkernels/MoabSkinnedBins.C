@@ -52,18 +52,15 @@ MoabSkinnedBins::MoabSkinnedBins(const InputParameters & parameters) :
 Real
 MoabSkinnedBins::computeValue()
 {
-  Point pt = _current_elem->vertex_average();
-  auto block = _current_elem->subdomain_id();
-
   if (_skin_by == "temperature")
-    return _skinner->getTemperatureBin(pt);
+    return _skinner->getTemperatureBin(_current_elem);
   else if (_skin_by == "subdomain")
-    return _skinner->getSubdomainBin(block);
+    return _skinner->getSubdomainBin(_current_elem);
   else if (_skin_by == "density")
-    return _skinner->getDensityBin(pt);
+    return _skinner->getDensityBin(_current_elem);
   else if (_skin_by == "all")
-    return _skinner->getBin(_skinner->getTemperatureBin(pt), _skinner->getDensityBin(pt),
-      _skinner->getSubdomainBin(block));
+    return _skinner->getBin(_skinner->getTemperatureBin(_current_elem), _skinner->getDensityBin(_current_elem),
+      _skinner->getSubdomainBin(_current_elem));
   else
     mooseError("Unhandled skin_type enum in MoabSkinnedBins!");
 }

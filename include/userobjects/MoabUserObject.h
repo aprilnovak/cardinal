@@ -48,24 +48,24 @@ class MoabUserObject : public GeneralUserObject
 
   /**
    * Get the bin index for the temperature
-   * @param[in] pt point
+   * @param[in] elem element
    * @return temperature bin index
    */
-  virtual unsigned int getTemperatureBin(const Point & pt) const;
+  virtual unsigned int getTemperatureBin(const Elem * const elem) const;
 
   /**
    * Get the bin index for the density
-   * @param[in] pt point
+   * @param[in] elem element
    * @return density bin index
    */
-  virtual unsigned int getDensityBin(const Point & pt) const;
+  virtual unsigned int getDensityBin(const Elem * const elem) const;
 
   /**
    * Get the bin index for the subdomain
-   * @param[in] pt point
+   * @param[in] elem element
    * @return subdomain bin index
    */
-  virtual unsigned int getSubdomainBin(const SubdomainID & id) const { return _blocks.at(id); }
+  virtual unsigned int getSubdomainBin(const Elem * const elem) const { return _blocks.at(elem->subdomain_id()); }
 
   /**
    * Set the length multiplier to get from [Mesh] units into centimeters
@@ -80,9 +80,6 @@ class MoabUserObject : public GeneralUserObject
    * @return variable number
    */
   unsigned int getAuxiliaryVariableNumber(const std::string & name, const std::string & param_name) const;
-
-  /// Intialise objects needed to perform binning of elements
-  void initBinningData();
 
   /// Clear mesh data
   void reset();
@@ -105,6 +102,8 @@ class MoabUserObject : public GeneralUserObject
 
 
 protected:
+  std::unique_ptr<NumericVector<Number>> _serialized_solution;
+
   /// Whether to print diagnostic information
   const bool & _verbose;
 
@@ -223,16 +222,6 @@ private:
   /// Get a serialised version of solution for a given system
   NumericVector<Number>& getSerialisedSolution(libMesh::System* sysPtr);
 
-  /// Create and save a mesh function for the provided variable
-  void setMeshFunction(std::string var_name_in);
-
-  /// Evaluate a mesh function at a point
-  double evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
-                          const Point& p) const;
-
-  /// Fetch the mesh function associated with a variable
-  std::shared_ptr<MeshFunction> getMeshFunction(std::string var_name_in);
-
   /// Sort all the elements in the [Mesh] into bins for temperature, density, and subdomain.
   virtual void sortElemsByResults();
 
@@ -316,9 +305,6 @@ private:
 
   /// Mapping from total bin ID to a set of elements sorted into that bin
   std::vector<std::set<dof_id_type>> _elem_bins;
-
-  /// A map to store mesh functions against their variable name
-  std::map<std::string, std::shared_ptr<MeshFunction> > meshFunctionPtrs;
 
   /// A place to store the entire solution
   // N.B. For big problems this is going to be a memory bottleneck
