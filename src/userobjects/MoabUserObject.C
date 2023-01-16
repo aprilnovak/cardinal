@@ -25,7 +25,6 @@ MoabUserObject::validParams()
   InputParameters params = GeneralUserObject::validParams();
   params.addParam<bool>("verbose", false, "Whether to print diagnostic information");
 
-
   // temperature binning
   params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements "
     "(with a linear scale between temperature_min and tempearture_max)");
@@ -51,7 +50,7 @@ MoabUserObject::validParams()
   params.addParam<double>("geom_tol",1.e-6,"Geometry tolerance for DagMC");
 
   params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
-  params.addParam<Real>("graveyard_scale_inner", 1.01, "graveyard_scale_inner > 1",
+  params.addRangeCheckedParam<Real>("graveyard_scale_inner", 1.01, "graveyard_scale_inner > 1",
     "Multiplier on mesh bounding box to form inner graveyard surface");
   params.addParam<Real>("graveyard_scale_outer", 1.10,
     "Multiplier on mesh bounding box to form outer graveyard surface");
@@ -1394,15 +1393,11 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
 moab::ErrorCode
 MoabUserObject::createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor)
 {
-  // Create the vertices of the box
-  std::vector<moab::EntityHandle> vert_handles;
-  moab::ErrorCode rval = createNodesFromBox(box,factor,vert_handles);
-  if(rval!=moab::MB_SUCCESS) return rval;
-  else if(vert_handles.size() != 8) mooseError("Failed to get box coords");
+  std::vector<moab::EntityHandle> vert_handles = createNodesFromBox(box, factor);
 
   // Create the tris in 4 groups of 3 (4 open tetrahedra)
   moab::Range tris;
-  rval = createCornerTris(vert_handles,0,1,2,4,normalout,tris);
+  auto rval = createCornerTris(vert_handles,0,1,2,4,normalout,tris);
   if(rval!=moab::MB_SUCCESS) return rval;
 
   rval = createCornerTris(vert_handles,3,2,1,7,normalout,tris);
@@ -1420,33 +1415,30 @@ MoabUserObject::createSurfaceFromBox(const BoundingBox& box, VolData& voldata, u
   return createSurf(surf_id,surface_set,tris,voldatavec);
 }
 
-moab::ErrorCode
-MoabUserObject::createNodesFromBox(const BoundingBox& box,double factor,std::vector<moab::EntityHandle>& vert_handles)
+std::vector<moab::EntityHandle>
+MoabUserObject::createNodesFromBox(const BoundingBox & box, const Real & factor) const
 {
-  moab::ErrorCode rval(moab::MB_SUCCESS);
+  std::vector<moab::EntityHandle> vert_handles;
 
   // Fetch the vertices of the box
-  auto verts = geom_utility::boxCorners(box,factor);
-  for (auto & v : verts)
-    v *= _scaling;
+  auto verts = geom_utility::boxCorners(box, factor);
 
-  // Array to represent a coord in moab
+  // Array to represent a coord in MOAB
   double coord[3];
-  // Create the vertices in moab and get the handles
-  for(const auto & vert : verts){
-    coord[0]=vert(0);
-    coord[1]=vert(1);
-    coord[2]=vert(2);
+
+  // Create the vertices in MOAB and get the handles
+  for(const auto & vert : verts)
+  {
+    coord[0] = vert(0) * _scaling;
+    coord[1] = vert(1) * _scaling;
+    coord[2] = vert(2) * _scaling;
 
     moab::EntityHandle ent;
-    rval = _moab->create_vertex(coord,ent);
-    if(rval!=moab::MB_SUCCESS){
-      vert_handles.clear();
-      return rval;
-    }
+    _moab->create_vertex(coord, ent);
     vert_handles.push_back(ent);
   }
-  return rval;
+
+  return vert_handles;
 }
 
 moab::ErrorCode

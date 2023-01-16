@@ -143,8 +143,13 @@ private:
    */
   moab::ErrorCode createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor);
 
-  /// Create MOAB nodes from a bounding box
-  moab::ErrorCode createNodesFromBox(const BoundingBox& box,double factor,std::vector<moab::EntityHandle>& vert_handles);
+  /**
+   * Create MOAB nodes from a bounding box
+   * @param[in] box bounding box
+   * @param[in] factor multiplicative factor to resize the bounding box sides
+   * @return nodes
+   */
+  std::vector<moab::EntityHandle> createNodesFromBox(const BoundingBox & box, const Real & factor) const;
 
   /// Create 3 tri faces stemming from one corner of a cude (an open tetrahedron)
   moab::ErrorCode createCornerTris(const std::vector<moab::EntityHandle> & verts,
