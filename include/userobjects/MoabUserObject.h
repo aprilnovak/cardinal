@@ -293,8 +293,8 @@ private:
   /// Number of density bins
   unsigned int _n_density_bins;
 
-  /// Number of blocks
-  unsigned int _n_material_bins;
+  /// Number of block bins
+  unsigned int _n_block_bins;
 
   /// Container for elems sorted by variable bin and materials
   std::vector<std::set<dof_id_type> > sortedElems;

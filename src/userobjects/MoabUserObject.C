@@ -186,7 +186,7 @@ void
 MoabUserObject::initialize()
 {
   // Fetch spatial dimension from libMesh
-  int dim = mesh().spatial_dimension() ;
+  int dim = mesh().spatial_dimension();
 
   // Set spatial dimension in MOAB
   moab::ErrorCode  rval = _moab->set_dimension(dim);
@@ -313,9 +313,9 @@ MoabUserObject::findMaterials()
   }
 
   // Save number of materials
-  _n_material_bins = mat_blocks.size();
+  _n_block_bins = mat_blocks.size();
 
-  if(_n_material_bins == 0)
+  if(_n_block_bins == 0)
     mooseError("No materials were found.");
 
   if(unique_blocks.empty())
@@ -871,7 +871,7 @@ MoabUserObject::sortElemsByResults()
   std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
 
   // Outer loop over materials
-  for(unsigned int iMat=0; iMat<_n_material_bins; iMat++){
+  for(unsigned int iMat=0; iMat<_n_block_bins; iMat++){
 
     // Get the subdomains for this material
     std::set<SubdomainID>& blocks = mat_blocks.at(iMat);
@@ -1027,7 +1027,7 @@ MoabUserObject::findSurfaces()
     unsigned int surf_id=0;
 
     // Loop over material bins
-    for(unsigned int iMat=0; iMat<_n_material_bins; iMat++){
+    for(unsigned int iMat=0; iMat<_n_block_bins; iMat++){
 
       // Get the base material name:
       std::string mat_name = "mat:"+openmc_mat_names.at(iMat);
@@ -1202,7 +1202,7 @@ MoabUserObject::groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::R
 void
 MoabUserObject::resetContainers()
 {
-  unsigned int nSortBins = _n_material_bins*_n_density_bins*_n_temperature_bins;
+  unsigned int nSortBins = _n_block_bins*_n_density_bins*_n_temperature_bins;
   sortedElems.clear();
   sortedElems.resize(nSortBins);
 
@@ -1255,9 +1255,9 @@ MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, in
     mooseError(err);
   }
 
-  int _n_material_bins = _n_density_binsIn*_n_temperature_bins;
+  int _n_block_bins = _n_density_binsIn*_n_temperature_bins;
   int iMatBin= n_temperature_binsIn*iDenBin + iVarBin;
-  if(iMatBin<0 || iMatBin >= _n_material_bins){
+  if(iMatBin<0 || iMatBin >= _n_block_bins){
     mooseError("Cannot find material bin index.");
   }
   return iMatBin;
@@ -1364,7 +1364,7 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
 
   // Create the graveyard set
   moab::EntityHandle graveyard;
-  unsigned int id = _n_material_bins * _n_temperature_bins * _n_density_bins + 1;
+  unsigned int id = _n_block_bins * _n_temperature_bins * _n_density_bins + 1;
   std::string mat_name = "mat:Graveyard";
   rval = createGroup(id,mat_name,graveyard);
   if(rval != moab::MB_SUCCESS) return rval;
