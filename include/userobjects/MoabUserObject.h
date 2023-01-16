@@ -283,14 +283,14 @@ private:
   /// Name of the MOOSE variable containing the density
   std::string den_var_name;
 
-  /// Minimum percent change in density for defining the lower bin boundary
-  Real rel_den_min;
+  /// Lower bound of density bins
+  Real _density_min;
 
-  /// Maximum percent change in density for defining the upper bin boundary
-  Real rel_den_max;
+  /// Upper bound of density bins
+  Real _density_max;
 
   /// Density bin width
-  Real rel_den_bw;
+  Real _density_bin_width;
 
   /// Number of density bins
   unsigned int _n_density_bins;
@@ -319,9 +319,6 @@ private:
 
   /// Blocks in the [Mesh]
   std::map<SubdomainID, unsigned int> _blocks;
-
-  /// vector for initial densities if binning by density
-  std::vector<double> initialDensities;
 
   /// An entitiy handle to represent the set of all tets
   moab::EntityHandle meshset;

@@ -47,8 +47,8 @@
   [invalid_max_density]
     type = RunException
     input = all_bins.i
-    cli_args = 'UserObjects/moab/rel_den_max=-0.6'
-    expect_err = "'rel_den_max' must be greater than 'rel_den_min'"
+    cli_args = 'UserObjects/moab/density_max=-0.6'
+    expect_err = "'density_max' must be greater than 'density_min'"
     requirement = "The system shall error if the maximum relative density is lower than the minimum relative density for the bins"
     required_objects = 'DagMCPostprocessor'
   []
@@ -71,16 +71,16 @@
   [too_low_den]
     type = RunException
     input = all_bins.i
-    cli_args = 'UserObjects/moab/rel_den_min=0.0'
-    expect_err = "Variable 'rho' has relative value below minimum range of bins. Please decrease 'rel_den_min'."
+    cli_args = 'UserObjects/moab/density_min=500.0'
+    expect_err = "Variable 'rho' has value below minimum range of bins. Please decrease 'density_min'."
     requirement = "The system shall error if the density is below the minimum bin bound"
     required_objects = 'DagMCPostprocessor'
   []
   [too_high_den]
     type = RunException
     input = all_bins.i
-    cli_args = 'UserObjects/moab/rel_den_max=-0.1'
-    expect_err = "Variable 'rho' has relative value above maximum range of bins. Please increase 'rel_den_max'."
+    cli_args = 'UserObjects/moab/density_max=400.0'
+    expect_err = "Variable 'rho' has value above maximum range of bins. Please increase 'density_max'."
     requirement = "The system shall error if the density is above the maximum bin bound"
     required_objects = 'DagMCPostprocessor'
   []

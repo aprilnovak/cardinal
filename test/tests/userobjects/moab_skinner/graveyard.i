@@ -48,14 +48,6 @@
   []
 []
 
-[Materials]
-  [mat]
-    type = OpenMCDensity
-    density = 5.0
-    block = '1'
-  []
-[]
-
 [UserObjects]
   [moab]
     type = MoabUserObject

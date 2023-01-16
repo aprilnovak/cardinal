@@ -98,19 +98,6 @@
   []
 []
 
-[Materials]
-  [mat1]
-    type = OpenMCDensity
-    density = 550.0
-    block = '1'
-  []
-  [mat2]
-    type = OpenMCDensity
-    density = 550.0
-    block = '2'
-  []
-[]
-
 [UserObjects]
   [moab]
     type = MoabUserObject
@@ -118,8 +105,8 @@
     material_names = "mat2 mat1"
 
     density = "rho"
-    rel_den_min = -0.5
-    rel_den_max =  0.5
+    density_min = 275.0
+    density_max = 825.0
     n_density_bins = 5
 
     temperature = "temp"
