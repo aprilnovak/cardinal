@@ -53,9 +53,11 @@ class MoabUserObject : public GeneralUserObject
    */
   virtual void setScaling(const Real & scale) { _scaling = scale; }
 
+  unsigned int blockBinIndex(const SubdomainID & id) const { return _blocks.at(id); }
+
   virtual int getDensityBin(const Point & p, const int & iMat) const;
 
-  virtual const std::vector< std::set<SubdomainID> > & getMaterialBlocks() const { return mat_blocks; }
+  virtual const std::map<SubdomainID, unsigned int> & getMaterialBlocks() const { return _blocks; }
 
   /// Intialise objects needed to perform binning of elements
   void initBinningData();
@@ -314,8 +316,10 @@ private:
   std::vector<std::string> mat_names;
   /// OpenMC material names
   std::vector<std::string> openmc_mat_names;
-  /// all element blocks assigned to mats
-  std::vector< std::set<SubdomainID> > mat_blocks;
+
+  /// Blocks in the [Mesh]
+  std::map<SubdomainID, unsigned int> _blocks;
+
   /// vector for initial densities if binning by density
   std::vector<double> initialDensities;
 

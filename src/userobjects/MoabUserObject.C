@@ -210,6 +210,7 @@ MoabUserObject::initialize()
   createElems(node_id_to_handle);
 
   // Find which elements belong to which materials
+  // TODO: can probably call some of these methods just once
   findMaterials();
 }
 
@@ -265,12 +266,17 @@ void
 MoabUserObject::findMaterials()
 {
   // Clear any prior data.
-  mat_blocks.clear();
+  _blocks.clear();
   initialDensities.clear();
 
-  std::set<SubdomainID> unique_blocks;
+  // Get number of blocks and save for binning; TODO: only use those blocks in solid_blocks & fluid_blocks
+  int i = 0;
+  for (const auto & b : _fe_problem.mesh().meshSubdomains())
+    _blocks[b] = i++;
 
-  SubdomainID maxBlockID = mesh().n_subdomains();
+  _n_block_bins = _blocks.size();
+
+  std::set<SubdomainID> unique_blocks;
 
   // Loop over the materials provided by the user
   for(const auto & mat : mat_names){
@@ -307,16 +313,7 @@ MoabUserObject::findMaterials()
       if(unique_blocks.size() != (nblks_before+nblks_new) )
         mooseError("Some blocks appear in more than one material.");
     }
-
-    // Save list
-    mat_blocks.push_back(blocks);
   }
-
-  // Save number of materials
-  _n_block_bins = mat_blocks.size();
-
-  if(_n_block_bins == 0)
-    mooseError("No materials were found.");
 
   if(unique_blocks.empty())
     mooseError("No blocks were found. Please assign at least one block to a material.");
@@ -867,48 +864,39 @@ MoabUserObject::sortElemsByResults()
   resetContainers();
 
   // accumulate information for printing diagnostics
+  std::vector<unsigned int> n_block_hits(_n_block_bins, 0);
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
   std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
 
-  // Outer loop over materials
-  for(unsigned int iMat=0; iMat<_n_block_bins; iMat++){
+  for (const auto & elem : mesh().active_local_element_ptr_range())
+  {
+    // bin by block ID
+    auto iMat = _blocks.at(elem->subdomain_id());
+    n_block_hits[iMat] += 1;
 
-    // Get the subdomains for this material
-    std::set<SubdomainID>& blocks = mat_blocks.at(iMat);
+    Point p = elem->vertex_average();
 
-    // Loop over subdomains
-    for( const auto block_id : blocks){
+    // bin by density
+    auto iDenBin = getDensityBin(p, iMat);
+    n_density_hits[iDenBin] += 1;
 
-      // Iterate over elements in this material whose dofs belong to this proc
-      auto itelem = mesh().active_local_subdomain_elements_begin(block_id);
-      auto endelem = mesh().active_local_subdomain_elements_end(block_id);
-      // TODO: I can probably get rid of the point locators entirely, if I'm already just
-      // looping through the elements here.
-      for( ; itelem!=endelem; ++itelem){
+    // bin by temperature
+    auto iBin = getTemperatureBin(p);
+    n_temp_hits[iBin] += 1;
 
-        Elem& elem = **itelem;
-
-        // Fetch the central point of this element
-        Point p = elem.vertex_average();
-
-        int iDenBin = getDensityBin(p, iMat);
-        n_density_hits[iDenBin] += 1;
-
-        int iBin = getTemperatureBin(p);
-        n_temp_hits[iBin] += 1;
-
-        // Sort elem into a bin
-        int iSortBin = getBin(iBin,iDenBin,iMat);
-        sortedElems.at(iSortBin).insert(elem.id());
-
-      }
-    }
+    // Sort elem into a bin
+    int iSortBin = getBin(iBin, iDenBin, iMat);
+    sortedElems.at(iSortBin).insert(elem->id());
   }
 
   VariadicTable<unsigned int, std::string, unsigned int> vtt({"Bin", "Range (K)", "# Elems"});
   VariadicTable<unsigned int, std::string, unsigned int> vtd({"Bin", "Range (\%)", "# Elems"});
+  VariadicTable<unsigned int, unsigned int> vtb({"Subdomain", "# Elems"});
 
-  for (unsigned int i = 0; i < n_temp_hits.size(); ++i)
+  //for (unsigned int i = 0; i < _n_block_bins; ++i)
+  //  vtb.addRow(_blocks, n_block_hits[i]);
+
+  for (unsigned int i = 0; i < _n_temperature_bins; ++i)
   {
     auto lower_bound = _temperature_min + i * _temperature_bin_width;
     vtt.addRow(i, std::to_string(lower_bound) + " to " + std::to_string(lower_bound + _temperature_bin_width), n_temp_hits[i]);

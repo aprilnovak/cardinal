@@ -74,17 +74,8 @@ MoabSkinnedBins::temperatureBin() const
 int
 MoabSkinnedBins::materialBin() const
 {
-  // TODO: make this more efficient
-  auto mat_blocks = _skinner->getMaterialBlocks();
-
   auto block = _current_elem->subdomain_id();
-  for (unsigned int i = 0; i < mat_blocks.size(); ++i)
-  {
-    if (mat_blocks[i].find(block) == mat_blocks[i].end())
-      return i;
-  }
-
-  mooseError("Failed to map block to a material!");
+  return _skinner->blockBinIndex(block);
 }
 
 int
