@@ -66,7 +66,7 @@
     type = MoabSkinnedBins
     variable = temp_bins
     skinner = moab
-    skin_by = variable
+    skin_by = temperature
   []
   [den_bins]
     type = MoabSkinnedBins
@@ -78,7 +78,7 @@
     type = MoabSkinnedBins
     variable = mat_bins
     skinner = moab
-    skin_by = material
+    skin_by = subdomain
   []
   [all_bins]
     type = MoabSkinnedBins

@@ -84,7 +84,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _n_write(0)
 {
   // Create MOAB interface
-  _moab =  std::make_shared<moab::Core>();
+  _moab = std::make_shared<moab::Core>();
 
   // Create a skinner
   skinner = std::make_unique<moab::Skinner>(_moab.get());
@@ -205,9 +205,7 @@ MoabUserObject::initialize()
 
   createElems(node_id_to_handle);
 
-  // Find which elements belong to which materials
-  // TODO: can probably call some of these methods just once
-  findMaterials();
+  findBlocks();
 }
 
 void
@@ -259,12 +257,10 @@ MoabUserObject::setSolution(std::string var_now,std::vector< double > &results, 
 }
 
 void
-MoabUserObject::findMaterials()
+MoabUserObject::findBlocks()
 {
-  // Clear any prior data.
   _blocks.clear();
 
-  // Get number of blocks and save for binning; TODO: only use those blocks in solid_blocks & fluid_blocks
   int i = 0;
   for (const auto & b : _fe_problem.mesh().meshSubdomains())
     _blocks[b] = i++;
@@ -796,7 +792,7 @@ MoabUserObject::evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
   return result;
 }
 
-bool
+void
 MoabUserObject::sortElemsByResults()
 {
    // Clear any prior data;
@@ -809,14 +805,14 @@ MoabUserObject::sortElemsByResults()
 
   for (const auto & elem : mesh().active_local_element_ptr_range())
   {
+    Point p = elem->vertex_average();
+
     // bin by block ID
     auto iMat = _blocks.at(elem->subdomain_id());
     n_block_hits[iMat] += 1;
 
-    Point p = elem->vertex_average();
-
     // bin by density
-    auto iDenBin = getDensityBin(p, iMat);
+    auto iDenBin = getDensityBin(p);
     n_density_hits[iDenBin] += 1;
 
     // bin by temperature
@@ -825,7 +821,7 @@ MoabUserObject::sortElemsByResults()
 
     // Sort elem into a bin
     int iSortBin = getBin(iBin, iDenBin, iMat);
-    sortedElems.at(iSortBin).insert(elem->id());
+    _elem_bins.at(iSortBin).insert(elem->id());
   }
 
   VariadicTable<unsigned int, std::string, unsigned int> vtt({"Bin", "Range (K)", "# Elems"});
@@ -855,28 +851,15 @@ MoabUserObject::sortElemsByResults()
   comm().barrier();
 
   // MPI communication
-  for( unsigned int iSortBin=0; iSortBin< sortedElems.size(); iSortBin++){
+  for( unsigned int iSortBin=0; iSortBin< _elem_bins.size(); iSortBin++){
     // Get a reference
-    std::set<dof_id_type>& sortedBinElems = sortedElems.at(iSortBin);
+    std::set<dof_id_type>& sortedBinElems = _elem_bins.at(iSortBin);
     // Get the union of the set over all procs
     communicateDofSet(sortedBinElems);
   }
-
-  // Check everything adds up
-  size_t elemCountCheck=0;
-  for(const auto & elemSet : sortedElems){
-    elemCountCheck += elemSet.size();
-  }
-
-  if(elemCountCheck != mesh().n_active_elem()){
-    mooseError("Disparity in number of sorted elements.", elemCountCheck, " ",  mesh().n_active_elem());
-  }
-
-  return true;
-
 }
 
-int
+unsigned int
 MoabUserObject::getTemperatureBin(const Point & pt) const
 {
   auto value = evalMeshFunction(meshFunctionPtrs.at(_temperature_name), pt);
@@ -895,8 +878,8 @@ MoabUserObject::getTemperatureBin(const Point & pt) const
   return bin_utility::linearBin(value, _temperature_bin_bounds);
 }
 
-int
-MoabUserObject::getDensityBin(const Point & p, const int & iMat) const
+unsigned int
+MoabUserObject::getDensityBin(const Point & p) const
 {
   if (!_bin_by_density)
     return 0;
@@ -966,7 +949,7 @@ MoabUserObject::findSurfaces()
 
           // Sort elems in this mat-density-temp bin into local regions
           std::vector<moab::Range> regions;
-          groupLocalElems(sortedElems.at(iSortBin),regions);
+          groupLocalElems(_elem_bins.at(iSortBin),regions);
 
           // Loop over all regions and find surfaces
           for(const auto & region : regions){
@@ -1116,8 +1099,8 @@ void
 MoabUserObject::resetContainers()
 {
   unsigned int nSortBins = _n_block_bins*_n_density_bins*_n_temperature_bins;
-  sortedElems.clear();
-  sortedElems.resize(nSortBins);
+  _elem_bins.clear();
+  _elem_bins.resize(nSortBins);
 
   // Update the serial solutions
   for(const auto& sol :  serial_solutions){

@@ -48,7 +48,7 @@
     type = MoabSkinnedBins
     variable = mat_bins
     skinner = moab
-    skin_by = material
+    skin_by = subdomain
   []
   [all_bins]
     type = MoabSkinnedBins

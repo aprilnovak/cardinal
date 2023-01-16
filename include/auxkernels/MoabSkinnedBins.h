@@ -33,10 +33,6 @@ public:
 
   static InputParameters validParams();
 
-  int temperatureBin() const;
-  int materialBin() const;
-  int densityBin() const;
-
 protected:
   virtual Real computeValue();
 

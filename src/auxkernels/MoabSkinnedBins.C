@@ -28,7 +28,7 @@ MoabSkinnedBins::validParams()
   InputParameters params = AuxKernel::validParams();
   params.addRequiredParam<UserObjectName>("skinner", "MOAB mesh skinner");
 
-  MooseEnum skin_type("variable material density all", "all");
+  MooseEnum skin_type("temperature subdomain density all", "all");
   params.addParam<MooseEnum>("skin_by", skin_type, "Which skin distribution to display");
   params.addClassDescription("Display the mapping of mesh elements to the skinned bins created by the MOAB skinner");
   return params;
@@ -52,39 +52,20 @@ MoabSkinnedBins::MoabSkinnedBins(const InputParameters & parameters) :
 Real
 MoabSkinnedBins::computeValue()
 {
-  if (_skin_by == "variable")
-    return temperatureBin();
-  else if (_skin_by == "material")
-    return materialBin();
+  Point pt = _current_elem->vertex_average();
+  auto block = _current_elem->subdomain_id();
+
+  if (_skin_by == "temperature")
+    return _skinner->getTemperatureBin(pt);
+  else if (_skin_by == "subdomain")
+    return _skinner->getSubdomainBin(block);
   else if (_skin_by == "density")
-    return densityBin();
+    return _skinner->getDensityBin(pt);
   else if (_skin_by == "all")
-    return _skinner->getBin(temperatureBin(), densityBin(), materialBin());
+    return _skinner->getBin(_skinner->getTemperatureBin(pt), _skinner->getDensityBin(pt),
+      _skinner->getSubdomainBin(block));
   else
     mooseError("Unhandled skin_type enum in MoabSkinnedBins!");
-}
-
-int
-MoabSkinnedBins::temperatureBin() const
-{
-  Point pt = _current_elem->vertex_average();
-  return _skinner->getTemperatureBin(pt);
-}
-
-int
-MoabSkinnedBins::materialBin() const
-{
-  auto block = _current_elem->subdomain_id();
-  return _skinner->blockBinIndex(block);
-}
-
-int
-MoabSkinnedBins::densityBin() const
-{
-  auto iMat = materialBin();
-
-  Point pt = _current_elem->vertex_average();
-  return _skinner->getDensityBin(pt, iMat);
 }
 
 #endif

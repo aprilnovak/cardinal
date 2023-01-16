@@ -41,21 +41,31 @@ class MoabUserObject : public GeneralUserObject
   virtual void threadJoin(const UserObject & /*uo*/) override {};
 
   /**
-   * Get the bin index for the binning variable
+   * Get the bin index for the temperature
    * @param[in] pt point
-   * @return variable bin index
+   * @return temperature bin index
    */
-  virtual int getTemperatureBin(const Point & pt) const;
+  virtual unsigned int getTemperatureBin(const Point & pt) const;
+
+  /**
+   * Get the bin index for the density
+   * @param[in] pt point
+   * @return density bin index
+   */
+  virtual unsigned int getDensityBin(const Point & pt) const;
+
+  /**
+   * Get the bin index for the subdomain
+   * @param[in] pt point
+   * @return subdomain bin index
+   */
+  virtual unsigned int getSubdomainBin(const SubdomainID & id) const { return _blocks.at(id); }
 
   /**
    * Set the length multiplier to get from [Mesh] units into centimeters
    * @param[in] scale multiplier
    */
   virtual void setScaling(const Real & scale) { _scaling = scale; }
-
-  unsigned int blockBinIndex(const SubdomainID & id) const { return _blocks.at(id); }
-
-  virtual int getDensityBin(const Point & p, const int & iMat) const;
 
   virtual const std::map<SubdomainID, unsigned int> & getMaterialBlocks() const { return _blocks; }
 
@@ -183,8 +193,8 @@ private:
   /// Build the graveyard (needed by OpenMC)
   moab::ErrorCode buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
 
-  /// Look for materials in the FE problem
-  void findMaterials();
+  /// Store a mapping from [Mesh] subdomain IDs to an index, to be used for binning by block ID
+  virtual void findBlocks();
 
   /// Clear the maps between entity handles and dof ids
   void clearElemMaps();
@@ -211,8 +221,8 @@ private:
   /// Fetch the mesh function associated with a variable
   std::shared_ptr<MeshFunction> getMeshFunction(std::string var_name_in);
 
-  /// Sort elems in to bins of a given temperature
-  bool sortElemsByResults();
+  /// Sort all the elements in the [Mesh] into bins for temperature, density, and subdomain.
+  virtual void sortElemsByResults();
 
   /// Group the binned elems into local temperature regions and find their surfaces
   bool findSurfaces();
@@ -298,8 +308,8 @@ private:
   /// Number of block bins
   unsigned int _n_block_bins;
 
-  /// Container for elems sorted by variable bin and materials
-  std::vector<std::set<dof_id_type> > sortedElems;
+  /// Mapping from total bin ID to a set of elements sorted into that bin
+  std::vector<std::set<dof_id_type>> _elem_bins;
 
   /// A map to store mesh functions against their variable name
   std::map<std::string, std::shared_ptr<MeshFunction> > meshFunctionPtrs;

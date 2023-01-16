@@ -37,7 +37,7 @@
     type = MoabSkinnedBins
     variable = temp_bins
     skinner = moab
-    skin_by = variable
+    skin_by = temperature
   []
 []
 
