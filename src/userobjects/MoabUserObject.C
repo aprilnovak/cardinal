@@ -250,34 +250,6 @@ MoabUserObject::execute()
   std::cout << "done executing" << std::endl;
 }
 
-bool
-MoabUserObject::setSolution(std::string var_now,std::vector< double > &results, double scaleFactor,bool isErr,bool normToVol)
-{
-  // Will "throw" a mooseError if var_now not set
-  // In normal run just causes a system exit, so don't catch these
-  libMesh::System& sys = system(var_now);
-  unsigned int iSys = sys.number();
-  unsigned int iVar = sys.variable_number(var_now);
-
-  try
-    {
-      setSolution(iSys,iVar,results,scaleFactor,isErr,normToVol);
-
-      _fe_problem.copySolutionsBackwards();
-
-      for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid){
-        _fe_problem.getVariable(tid,var_now).computeElemValues();
-      }
-    }
-  catch(std::runtime_error &e)
-    {
-      std::cerr<<e.what()<<std::endl;
-      return false;
-    }
-
-  return true;
-}
-
 void
 MoabUserObject::findBlocks()
 {
@@ -584,89 +556,6 @@ MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
     _id_to_elem_handles[id]=std::vector<moab::EntityHandle>();
 
   (_id_to_elem_handles[id]).push_back(ent);
-}
-
-void
-MoabUserObject::setSolution(unsigned int iSysNow,  unsigned int iVarNow, std::vector< double > &results, double scaleFactor, bool isErr, bool normToVol)
-{
-  // Fetch a reference to our system
-  libMesh::System& sys = systems().get_system(iSysNow);
-
-  // Keep track of whether we have non-trivial results on this processor.
-  bool procHasNonZeroResult=false;
-
-  // When we set the solution, we only want to set dofs that belong to this process
-  auto itelem  = mesh().active_local_elements_begin();
-  auto endelem = mesh().active_local_elements_end();
-  for( ; itelem!=endelem; ++itelem){
-
-    Elem& elem = **itelem;
-    dof_id_type id = elem.id();
-
-    // Convert the elem id to a list of entity handles
-    if(_id_to_elem_handles.find(id)==_id_to_elem_handles.end())
-      throw std::runtime_error("Elem id not matched to an entity handle");
-    std::vector<moab::EntityHandle> ents =  _id_to_elem_handles[id];
-
-    // Sum over the result bins for this elem
-    double result=0.;
-    for(const auto ent : ents){
-      // Conversion to bin index
-      unsigned int binIndex = ent - offset;
-
-      if( (binIndex+1) > results.size() ){
-        throw std::runtime_error("Mismatch in size of results vector and number of elements");
-      }
-
-      result += results.at(binIndex);
-    }
-
-    if(isErr){
-      // result is a [sum of] variance[s]: sqrt to get the error.
-      // NB: for second order mesh this is equivalent to summing errors in quadrature,
-      // so won't quite be equivalent to the variance of the mean on the original mesh,
-      // but difference should be small for large sample size.
-      result=sqrt(result);
-    }
-
-    // Scale the result
-    result *= scaleFactor;
-
-    if(normToVol){
-      // Fetch the volume of element
-      double vol = elem.volume();
-      // Normalise result to the element volume
-      result /= vol;
-    }
-
-    // Get the solution index for this element
-    dof_id_type index = elem_to_soln_index(elem,iSysNow,iVarNow);
-
-    // Set the solution for this index
-    sys.solution->set(index,result);
-
-    if(!procHasNonZeroResult && fabs(result) > 1.e-9){
-      procHasNonZeroResult=true;
-    }
-  }
-
-  // Synchronise processes
-  comm().barrier();
-
-  // If we found a non-zero result on this process, tell all the other proceses
-  // Convert to int, and find maximum accross all procs
-  int hasNonZeroResultInt=int(procHasNonZeroResult);
-  comm().max(hasNonZeroResultInt);
-  // Convert back to bool
-  bool hasNonZeroResultGlobal = bool(hasNonZeroResultInt);
-
-  // Warn if there was no non-zero result accross all processes
-  if(!hasNonZeroResultGlobal){
-    mooseWarning("OpenMC results are everywhere zero.");
-  }
-
-  sys.solution->close();
-
 }
 
 void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_out,
