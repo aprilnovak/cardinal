@@ -25,7 +25,6 @@ MoabUserObject::validParams()
   InputParameters params = GeneralUserObject::validParams();
   params.addParam<bool>("verbose", false, "Whether to print diagnostic information");
 
-  params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
 
   // temperature binning
   params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements "
@@ -50,8 +49,12 @@ MoabUserObject::validParams()
 
   params.addParam<double>("faceting_tol",1.e-4,"Faceting tolerance for DagMC");
   params.addParam<double>("geom_tol",1.e-6,"Geometry tolerance for DagMC");
-  params.addParam<double>("graveyard_scale_inner",1.01,"Graveyard inner surface scalefactor relative to aligned bounding box.");
-  params.addParam<double>("graveyard_scale_outer",1.10,"Graveyard outer surface scalefactor relative to aligned bounding box.");
+
+  params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
+  params.addParam<Real>("graveyard_scale_inner", 1.01, "graveyard_scale_inner > 1",
+    "Multiplier on mesh bounding box to form inner graveyard surface");
+  params.addParam<Real>("graveyard_scale_outer", 1.10,
+    "Multiplier on mesh bounding box to form outer graveyard surface");
 
   params.addParam<bool>("output_skins", false, "Whether the skinned MOAB mesh (skins generated from the "
     "libMesh [Mesh]) should be written to a file. The files will be named moab_skins_<n>.h5m, where <n> "
@@ -78,8 +81,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   openmc_mat_names(getParam<std::vector<std::string> >("material_openmc_names")),
   faceting_tol(getParam<double>("faceting_tol")),
   geom_tol(getParam<double>("geom_tol")),
-  scalefactor_inner(getParam<double>("graveyard_scale_inner")),
-  scalefactor_outer(getParam<double>("graveyard_scale_outer")),
+  _graveyard_scale_inner(getParam<double>("graveyard_scale_inner")),
+  _graveyard_scale_outer(getParam<double>("graveyard_scale_outer")),
   _output_skins(getParam<bool>("output_skins")),
   _output_full(getParam<bool>("output_full")),
   _scaling(1.0),
@@ -118,6 +121,17 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     _n_density_bins = 1;
   }
 
+  if (_build_graveyard)
+  {
+    if (_graveyard_scale_outer < _graveyard_scale_inner)
+      paramError("graveyard_scale_outer", "'graveyard_scale_outer' must be greater than 'graveyard_scale_inner'!");
+  }
+  else
+  {
+    checkUnusedParam(parameters, "graveyard_scale_inner", "'build_graveyard' is false");
+    checkUnusedParam(parameters, "graveyard_scale_outer", "'build_graveyard' is false");
+  }
+
   // If no alternative names were provided for openmc materials
   // assume they are the same as in MOOSE
   if(openmc_mat_names.empty()){
@@ -135,13 +149,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
 
   for (unsigned int i = 0; i < _n_density_bins + 1; ++i)
     _density_bin_bounds.push_back(rel_den_min + i * rel_den_bw);
-
-  if(scalefactor_inner < 1.0){
-    mooseError("Please set graveyard_scale_inner to a value greater than 1");
-  }
-  if(scalefactor_outer < scalefactor_inner){
-    mooseError("Please ensure graveyard_scale_outer exceeds graveyard_scale_inner");
-  }
 
   _tet4_nodes.push_back({0,1,2,3});
 
@@ -1376,11 +1383,11 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
   BoundingBox bbox =  MeshTools::create_bounding_box(mesh());
 
   // Create inner surface with normals pointing into box
-  rval = createSurfaceFromBox(bbox,vdata,surf_id,false,scalefactor_inner);
+  rval = createSurfaceFromBox(bbox,vdata,surf_id,false,_graveyard_scale_inner);
   if(rval != moab::MB_SUCCESS) return rval;
 
   // Create outer surface with face normals pointing out of the box
-  rval = createSurfaceFromBox(bbox,vdata,surf_id,true,scalefactor_outer);
+  rval = createSurfaceFromBox(bbox,vdata,surf_id,true,_graveyard_scale_outer);
   return rval;
 }
 

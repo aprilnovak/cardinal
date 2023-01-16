@@ -81,10 +81,10 @@ class MoabUserObject : public GeneralUserObject
 
 
 protected:
-
   /// Whether to print diagnostic information
   const bool & _verbose;
 
+  /// Whether to build a graveyard as two additional cube surfaces surrounding the mesh.
   const bool & _build_graveyard;
 
 private:
@@ -344,10 +344,11 @@ private:
   /// Geometry tolerence needed by DAGMC
   double geom_tol;
 
-  /// Scalefactors applied to bounding box for inner surface of graveyard
-  double scalefactor_inner;
-  /// Scalefactors applied to bounding box for outer surface of graveyard
-  double scalefactor_outer;
+  /// Multiplier on bounding box for inner surface of graveyard
+  const Real & _graveyard_scale_inner;
+
+  /// Multiplier on bounding box for outer surface of graveyard
+  const Real & _graveyard_scale_outer;
 
   /// Whether to output the MOAB mesh skins to a .h5m file
   const bool & _output_skins;
