@@ -16,17 +16,17 @@ struct MOABMaterialProperties{
   double rel_density;
   double temp;
 };
-/**
-    \brief UserObject class which wraps a moab::Interface pointer.
 
-    The main role of this class is to bin elements of the mesh
-    according named variables (presumed temperature and density),
-    and subsequently perform a skinning operation to find the
-    surfaces of these local regions.
+/**
+ * \brief Skins the [Mesh] according to individual bins for temperature, density, and subdomain ID
+ *
+ * Skins a [Mesh] according to temperature, density, and subdomain. The surfaces bounding
+ * those grouped elements are then generated, providing geometry information needed for DAGMC
+ * to then track particles on this new geometry.
  */
 class MoabUserObject : public GeneralUserObject
 {
- public:
+public:
 
   MoabUserObject(const InputParameters & parameters);
 
@@ -81,10 +81,10 @@ class MoabUserObject : public GeneralUserObject
    */
   unsigned int getAuxiliaryVariableNumber(const std::string & name, const std::string & param_name) const;
 
-  /// Clear mesh data
+  /// TODO Clear mesh data
   void reset();
 
-  /// Retrieve a list of original material names and properties
+  /// TODO Retrieve a list of original material names and properties
   void getMaterialProperties(std::vector<std::string>& mat_names_out,
                              std::vector<double>& initial_densities,
                              std::vector<std::string>& tails,
@@ -93,10 +93,14 @@ class MoabUserObject : public GeneralUserObject
   /// MOAB interface
   std::shared_ptr<moab::Interface> _moab;
 
-  /// Map material, density and temp bin indices onto a linearised index
-  /// with default parameters for number of bins
-  int getBin(int iVarBin, int iDenBin, int iMat) const;
-
+  /**
+   * Get total bin index given individual indices for the temperature, density, and subdomain bins
+   * @param[in] temp_bin temperature bin
+   * @param[in] density_bin density bin
+   * @param[in] subdomain_bin subdomain ID bin
+   * @return total bin index
+   */
+  virtual unsigned int getBin(const unsigned int & temp_bin, const unsigned int & density_bin, const unsigned int & subdomain_bin) const;
 
 protected:
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
@@ -107,9 +111,52 @@ protected:
   /// Whether to build a graveyard as two additional cube surfaces surrounding the mesh.
   const bool & _build_graveyard;
 
-private:
+  /// Name of the temperature variable
+  const std::string & _temperature_name;
 
-  // Private types
+  /// Lower bound of temperature bins
+  const Real & _temperature_min;
+
+  /// Upper bound of temperature bins
+  const Real & _temperature_max;
+
+  /// Number of temperature bins
+  const unsigned int & _n_temperature_bins;
+
+  /// Temperature bin width
+  const Real _temperature_bin_width;
+
+  /// Whether elements are binned by density (in addition to temperature and block)
+  const bool _bin_by_density;
+
+  /// material names
+  std::vector<std::string> mat_names;
+  /// OpenMC material names
+  std::vector<std::string> openmc_mat_names;
+
+  /// Faceting tolerence needed by DAGMC
+  const Real & _faceting_tol;
+
+  /// Geometry tolerence needed by DAGMC
+  const Real & _geom_tol;
+
+  /// Multiplier on bounding box for inner surface of graveyard
+  const Real & _graveyard_scale_inner;
+
+  /// Multiplier on bounding box for outer surface of graveyard
+  const Real & _graveyard_scale_outer;
+
+  /// Whether to output the MOAB mesh skins to a .h5m file
+  const bool & _output_skins;
+
+  /// Whether to output the MOAB mesh to a .h5m file
+  const bool & _output_full;
+
+  /// Length multiplier to get from [Mesh] units into OpenMC's centimeters
+  Real _scaling;
+
+  /// Count number of times file has been written to
+  unsigned int _n_write;
 
   /// Encode the whether the surface normal faces into or out of the volume
   enum Sense { BACKWARDS=-1, FORWARDS=1};
@@ -119,8 +166,6 @@ private:
     moab::EntityHandle vol;
     Sense sense;
   };
-
-  // Private methods
 
   /// Get a modifyable reference to the underlying libmesh mesh.
   MeshBase& mesh();
@@ -249,32 +294,11 @@ private:
   /// Topology tool for setting surface sense
   std::unique_ptr<moab::GeomTopoTool> gtt;
 
-  /// Convert MOOSE density units to openmc density units
-  double densityscale;
-
   /// Map from libmesh id to MOAB element entity handles
   std::map<dof_id_type,std::vector<moab::EntityHandle> > _id_to_elem_handles;
 
   /// Save the first tet entity handle
   moab::EntityHandle offset;
-
-  /// Name of the temperature variable
-  const std::string & _temperature_name;
-
-  /// Lower bound of temperature bins
-  const Real & _temperature_min;
-
-  /// Upper bound of temperature bins
-  const Real & _temperature_max;
-
-  /// Number of temperature bins
-  const unsigned int & _n_temperature_bins;
-
-  /// Temperature bin width
-  const Real _temperature_bin_width;
-
-  /// Whether elements are binned by density (in addition to temperature and block)
-  const bool _bin_by_density;
 
   /// Name of the MOOSE variable containing the density
   std::string den_var_name;
@@ -305,11 +329,6 @@ private:
 
   // Materials data
 
-  /// material names
-  std::vector<std::string> mat_names;
-  /// OpenMC material names
-  std::vector<std::string> openmc_mat_names;
-
   /// Blocks in the [Mesh]
   std::map<SubdomainID, unsigned int> _blocks;
 
@@ -334,34 +353,8 @@ private:
   /// Tag for name of entity set
   moab::Tag name_tag;
 
-  /// Const to encode that MOAB tets have 4 nodes
-  const unsigned int nNodesPerTet = 4;
-
-  // DagMC settings
-  /// Faceting tolerence needed by DAGMC
-  double faceting_tol;
-  /// Geometry tolerence needed by DAGMC
-  double geom_tol;
-
-  /// Multiplier on bounding box for inner surface of graveyard
-  const Real & _graveyard_scale_inner;
-
-  /// Multiplier on bounding box for outer surface of graveyard
-  const Real & _graveyard_scale_outer;
-
-  /// Whether to output the MOAB mesh skins to a .h5m file
-  const bool & _output_skins;
-
-  /// Whether to output the MOAB mesh to a .h5m file
-  const bool & _output_full;
-
-  /// Length multiplier to get from [Mesh] units into OpenMC's centimeters
-  Real _scaling;
-
-  /// Count number of times file has been written to
-  unsigned int _n_write;
-  /// Store the number of times writeSurfaces is called
-  unsigned int n_its;
+  /// Number of nodes per MOAB tet (which are first order, so TET4)
+  const unsigned int NODES_PER_MOAB_TET = 4;
 
   /// Bounds of the temperature bins
   std::vector<Real> _temperature_bin_bounds;

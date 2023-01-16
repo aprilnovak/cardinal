@@ -37,14 +37,13 @@ MoabUserObject::validParams()
   params.addRangeCheckedParam<Real>("density_min", 0.0, "density_min >= 0.0", "Lower bound of density bins");
   params.addParam<Real>("density_max", "Upper bound of density bins");
   params.addRangeCheckedParam<unsigned int>("n_density_bins", "n_density_bins > 0", "Number of density bins");
-  params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
   params.addParam<std::vector<std::string> >("material_names", "List of MOOSE material names");
   params.addParam<std::vector<std::string> >("material_openmc_names", std::vector<std::string>(), "List of OpenMC material names");
 
-  params.addParam<double>("faceting_tol",1.e-4,"Faceting tolerance for DagMC");
-  params.addParam<double>("geom_tol",1.e-6,"Geometry tolerance for DagMC");
+  params.addRangeCheckedParam<Real>("faceting_tol", 1e-4, "faceting_tol > 0", "Faceting tolerance for DagMC");
+  params.addRangeCheckedParam<Real>("geom_tol", 1e-6, "geom_tol > 0", "Geometry tolerance for DagMC");
 
   params.addParam<bool>("build_graveyard", false, "Whether to build a graveyard around the geometry");
   params.addRangeCheckedParam<Real>("graveyard_scale_inner", 1.01, "graveyard_scale_inner > 1",
@@ -67,7 +66,6 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _serialized_solution(NumericVector<Number>::build(_communicator).release()),
   _verbose(getParam<bool>("verbose")),
   _build_graveyard(getParam<bool>("build_graveyard")),
-  densityscale(getParam<double>("density_scale")),
   _temperature_name(getParam<std::string>("temperature")),
   _temperature_min(getParam<Real>("temperature_min")),
   _temperature_max(getParam<Real>("temperature_max")),
@@ -76,8 +74,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _bin_by_density(isParamValid("density")),
   mat_names(getParam<std::vector<std::string> >("material_names")),
   openmc_mat_names(getParam<std::vector<std::string> >("material_openmc_names")),
-  faceting_tol(getParam<double>("faceting_tol")),
-  geom_tol(getParam<double>("geom_tol")),
+  _faceting_tol(getParam<Real>("faceting_tol")),
+  _geom_tol(getParam<Real>("geom_tol")),
   _graveyard_scale_inner(getParam<double>("graveyard_scale_inner")),
   _graveyard_scale_outer(getParam<double>("graveyard_scale_outer")),
   _output_skins(getParam<bool>("output_skins")),
@@ -330,8 +328,8 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     for(const auto& nodeSet: nodeSets){
 
       // Set MOAB connectivity
-      std::vector<moab::EntityHandle> conn(nNodesPerTet);
-      for(unsigned int iNode=0; iNode<nNodesPerTet;++iNode){
+      std::vector<moab::EntityHandle> conn(NODES_PER_MOAB_TET);
+      for(unsigned int iNode=0; iNode<NODES_PER_MOAB_TET;++iNode){
 
         // Get the elem node index of the ith node of the sub-tet
         unsigned int nodeIndex = nodeSet.at(iNode);
@@ -349,7 +347,7 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
 
       // Create an element in MOAB database
       moab::EntityHandle ent(0);
-      rval = _moab->create_element(moab::MBTET,conn.data(),nNodesPerTet,ent);
+      rval = _moab->create_element(moab::MBTET,conn.data(),NODES_PER_MOAB_TET,ent);
       if(rval!=moab::MB_SUCCESS){
         std::string err="Could not create MOAB element: rval = "
           +std::to_string(rval);
@@ -415,10 +413,10 @@ MoabUserObject::createTags()
   if(rval!=moab::MB_SUCCESS)  return rval;
 
   // Set the values for DagMC faceting / geometry tolerance tags on the mesh entity set
-  rval = _moab->tag_set_data(faceting_tol_tag, &meshset, 1, &faceting_tol);
+  rval = _moab->tag_set_data(faceting_tol_tag, &meshset, 1, &_faceting_tol);
   if(rval!=moab::MB_SUCCESS)  return rval;
 
-  rval = _moab->tag_set_data(geometry_resabs_tag, &meshset, 1, &geom_tol);
+  rval = _moab->tag_set_data(geometry_resabs_tag, &meshset, 1, &_geom_tol);
   return rval;
 }
 
@@ -473,7 +471,6 @@ MoabUserObject::createSurf(unsigned int id,moab::EntityHandle& surface_set, moab
 moab::ErrorCode
 MoabUserObject::updateSurfData(moab::EntityHandle surface_set,VolData data)
 {
-
   // Add the surface to the volume set
   moab::ErrorCode rval = _moab->add_parent_child(data.vol,surface_set);
   if(rval != moab::MB_SUCCESS) return rval;
@@ -639,7 +636,7 @@ MoabUserObject::sortElemsByResults()
     n_temp_hits[iBin] += 1;
 
     // Sort elem into a bin
-    int iSortBin = getBin(iBin, iDenBin, iMat);
+    auto iSortBin = getBin(iBin, iDenBin, iMat);
     _elem_bins.at(iSortBin).insert(elem->id());
   }
 
@@ -931,8 +928,8 @@ MoabUserObject::reset()
   surfsToVols.clear();
 }
 
-int
-MoabUserObject::getBin(int iVarBin, int iDenBin, int iMat) const
+unsigned int
+MoabUserObject::getBin(const unsigned int & iVarBin, const unsigned int & iDenBin, const unsigned int & iMat) const
 {
   return _n_temperature_bins * (_n_density_bins * iMat + iDenBin) + iVarBin;
 }
