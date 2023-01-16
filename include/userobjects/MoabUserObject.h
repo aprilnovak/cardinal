@@ -148,7 +148,7 @@ private:
   moab::ErrorCode createVol(unsigned int id,moab::EntityHandle& volume_set,moab::EntityHandle group_set);
 
   /// Helper method to create MOAB surface entity set
-  moab::ErrorCode createSurf(unsigned int id,moab::EntityHandle& surface_set, moab::Range& faces,  std::vector<VolData> & voldata);
+  void createSurf(unsigned int id,moab::EntityHandle& surface_set, moab::Range& faces,  std::vector<VolData> & voldata);
 
   /// Helper method to create MOAB surfaces with no overlaps
   moab::ErrorCode createSurfaces(moab::Range& reversed, VolData& voldata, unsigned int& surf_id);
@@ -161,7 +161,7 @@ private:
    * @param[in]
    * @param[in] factor
    */
-  moab::ErrorCode createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor);
+  void createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor);
 
   /**
    * Create MOAB nodes from a bounding box
@@ -172,13 +172,13 @@ private:
   std::vector<moab::EntityHandle> createNodesFromBox(const BoundingBox & box, const Real & factor) const;
 
   /// Create 3 tri faces stemming from one corner of a cude (an open tetrahedron)
-  moab::ErrorCode createCornerTris(const std::vector<moab::EntityHandle> & verts,
+  void createCornerTris(const std::vector<moab::EntityHandle> & verts,
                                    unsigned int corner, unsigned int v1,
                                    unsigned int v2 ,unsigned int v3,
                                    bool normalout, moab::Range &surface_tris);
 
   /// Create MOAB tri surface element
-  moab::ErrorCode createTri(const std::vector<moab::EntityHandle> & vertices,unsigned int v1, unsigned int v2 ,unsigned int v3, moab::Range &surface_tris);
+  moab::EntityHandle createTri(const std::vector<moab::EntityHandle> & vertices,unsigned int v1, unsigned int v2 ,unsigned int v3);
 
   /// Add parent-child metadata relating a surface to its volume
   moab::ErrorCode updateSurfData(moab::EntityHandle surface_set,VolData data);
@@ -199,7 +199,7 @@ private:
   const std::vector<std::vector<unsigned int>> & getTetSets(ElemType type) const;
 
   /// Build the graveyard (needed by OpenMC)
-  moab::ErrorCode buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
+  void buildGraveyard(unsigned int & vol_id, unsigned int & surf_id);
 
   /// Store a mapping from [Mesh] subdomain IDs to an index, to be used for binning by block ID
   virtual void findBlocks();

@@ -450,31 +450,24 @@ MoabUserObject::createVol(unsigned int id,moab::EntityHandle& volume_set,moab::E
   return rval;
 }
 
-moab::ErrorCode
+void
 MoabUserObject::createSurf(unsigned int id,moab::EntityHandle& surface_set, moab::Range& faces,  std::vector<VolData> & voldata)
 {
   // Create meshset
-  moab::ErrorCode rval = _moab->create_meshset(moab::MESHSET_SET,surface_set);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  _moab->create_meshset(moab::MESHSET_SET,surface_set);
 
   // Set tags
-  rval = setTags(surface_set,"","Surface",id,2);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  setTags(surface_set,"","Surface",id,2);
 
   // Add tris to the surface
-  rval = _moab->add_entities(surface_set,faces);
-  if(rval != moab::MB_SUCCESS) return rval;
+  _moab->add_entities(surface_set,faces);
 
   // Create entry in map
   surfsToVols[surface_set] = std::vector<VolData>();
 
   // Add volume to list associated with this surface
-  for(const auto & data : voldata){
-    rval = updateSurfData(surface_set,data);
-    if(rval != moab::MB_SUCCESS) return rval;
-  }
-
-  return moab::MB_SUCCESS;
+  for(const auto & data : voldata)
+    updateSurfData(surface_set,data);
 }
 
 moab::ErrorCode
@@ -776,11 +769,7 @@ MoabUserObject::findSurfaces()
 
     // Finally, build a graveyard
     if (_build_graveyard)
-    {
-      rval = buildGraveyard(vol_id,surf_id);
-      if(rval != moab::MB_SUCCESS) return false;
-    }
-
+      buildGraveyard(vol_id,surf_id);
   }
   catch(std::exception &e){
     std::cerr<<e.what()<<std::endl;
@@ -1041,8 +1030,7 @@ MoabUserObject::createSurfaces(moab::Range& faces, VolData& voldata, unsigned in
         // Create a new shared surface
         moab::EntityHandle shared_surf;
         surf_id++;
-        rval = createSurf(surf_id,shared_surf,overlap,vols);
-        if(rval!=moab::MB_SUCCESS) return rval;
+        createSurf(surf_id,shared_surf,overlap,vols);
       }
 
       // Subtract from the input list
@@ -1057,14 +1045,14 @@ MoabUserObject::createSurfaces(moab::Range& faces, VolData& voldata, unsigned in
     moab::EntityHandle surface_set;
     std::vector<VolData> voldatavec(1,voldata);
     surf_id++;
-    rval = createSurf(surf_id,surface_set,faces,voldatavec);
-    if(rval != moab::MB_SUCCESS) return rval;
+    createSurf(surf_id,surface_set,faces,voldatavec);
   }
 
   return rval;
 }
 
-moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned int & surf_id)
+void
+MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned int & surf_id)
 {
   moab::ErrorCode rval(moab::MB_SUCCESS);
 
@@ -1072,14 +1060,12 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
   moab::EntityHandle graveyard;
   unsigned int id = _n_block_bins * _n_temperature_bins * _n_density_bins + 1;
   std::string mat_name = "mat:Graveyard";
-  rval = createGroup(id,mat_name,graveyard);
-  if(rval != moab::MB_SUCCESS) return rval;
+  createGroup(id,mat_name,graveyard);
 
   // Create a volume set
   moab::EntityHandle volume_set;
   vol_id++;
-  rval = createVol(vol_id,volume_set,graveyard);
-  if(rval != moab::MB_SUCCESS) return rval;
+  createVol(vol_id,volume_set,graveyard);
 
   // Set up for the volume data to pass to surfs
   VolData vdata = {volume_set,Sense::FORWARDS};
@@ -1088,37 +1074,28 @@ moab::ErrorCode MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned 
   BoundingBox bbox =  MeshTools::create_bounding_box(mesh());
 
   // Create inner surface with normals pointing into box
-  rval = createSurfaceFromBox(bbox,vdata,surf_id,false,_graveyard_scale_inner);
-  if(rval != moab::MB_SUCCESS) return rval;
+  createSurfaceFromBox(bbox,vdata,surf_id,false,_graveyard_scale_inner);
 
   // Create outer surface with face normals pointing out of the box
-  rval = createSurfaceFromBox(bbox,vdata,surf_id,true,_graveyard_scale_outer);
-  return rval;
+  createSurfaceFromBox(bbox,vdata,surf_id,true,_graveyard_scale_outer);
 }
 
-moab::ErrorCode
+void
 MoabUserObject::createSurfaceFromBox(const BoundingBox& box, VolData& voldata, unsigned int& surf_id, bool normalout, const Real & factor)
 {
   std::vector<moab::EntityHandle> vert_handles = createNodesFromBox(box, factor);
 
   // Create the tris in 4 groups of 3 (4 open tetrahedra)
   moab::Range tris;
-  auto rval = createCornerTris(vert_handles,0,1,2,4,normalout,tris);
-  if(rval!=moab::MB_SUCCESS) return rval;
-
-  rval = createCornerTris(vert_handles,3,2,1,7,normalout,tris);
-  if(rval!=moab::MB_SUCCESS) return rval;
-
-  rval = createCornerTris(vert_handles,6,4,2,7,normalout,tris);
-  if(rval!=moab::MB_SUCCESS) return rval;
-
-  rval = createCornerTris(vert_handles,5,1,4,7,normalout,tris);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  createCornerTris(vert_handles,0,1,2,4,normalout,tris);
+  createCornerTris(vert_handles,3,2,1,7,normalout,tris);
+  createCornerTris(vert_handles,6,4,2,7,normalout,tris);
+  createCornerTris(vert_handles,5,1,4,7,normalout,tris);
 
   moab::EntityHandle surface_set;
   std::vector<VolData> voldatavec(1,voldata);
   surf_id++;
-  return createSurf(surf_id,surface_set,tris,voldatavec);
+  createSurf(surf_id,surface_set,tris,voldatavec);
 }
 
 std::vector<moab::EntityHandle>
@@ -1147,7 +1124,7 @@ MoabUserObject::createNodesFromBox(const BoundingBox & box, const Real & factor)
   return vert_handles;
 }
 
-moab::ErrorCode
+void
 MoabUserObject::createCornerTris(const std::vector<moab::EntityHandle> & verts,
                                  unsigned int corner,
                                  unsigned int v1, unsigned int v2 ,unsigned int v3,
@@ -1155,35 +1132,28 @@ MoabUserObject::createCornerTris(const std::vector<moab::EntityHandle> & verts,
 {
   // Create 3 tris stemming from one corner (i.e. an open tetrahedron)
   // Assume first is the central corner, and the others are labelled clockwise looking down on the corner
-  moab::ErrorCode rval = moab::MB_SUCCESS;
   unsigned int indices[3] = {v1,v2,v3};
 
   //Create each tri by a cyclic permutation of indices
-  for(unsigned int i=0; i<3; i++){
+  for(unsigned int i=0; i<3; i++)
+  {
     // v1,v2 = 0,1; 1,2; 2;0
-    int v1 = indices[i%3];
-    int v2 = indices[(i+1)%3];
-    if(normalout){
-      // anti-clockwise: normal points outwards
-      rval = createTri(verts,corner,v2,v1,surface_tris);
-    }
-    else{
-      // clockwise: normal points inwards
-      rval = createTri(verts,corner,v1,v2,surface_tris);
-    }
-    if(rval!=moab::MB_SUCCESS) return rval;
+    int i1 = indices[i%3];
+    int i2 = indices[(i+1)%3];
+    if(normalout) // anti-clockwise: normal points outwards
+      surface_tris.insert(createTri(verts,corner,i2,i1));
+    else // clockwise: normal points inwards
+      surface_tris.insert(createTri(verts,corner,i1,i2));
   }
-  return rval;
 }
 
-moab::ErrorCode
-MoabUserObject::createTri(const std::vector<moab::EntityHandle> & vertices,unsigned int v1, unsigned int v2 ,unsigned int v3, moab::Range &surface_tris) {
-  moab::ErrorCode rval = moab::MB_SUCCESS;
+moab::EntityHandle
+MoabUserObject::createTri(const std::vector<moab::EntityHandle> & vertices,unsigned int v1, unsigned int v2 ,unsigned int v3)
+{
   moab::EntityHandle triangle;
   moab::EntityHandle connectivity[3] = { vertices[v1],vertices[v2],vertices[v3] };
-  rval = _moab->create_element(moab::MBTRI,connectivity,3,triangle);
-  surface_tris.insert(triangle);
-  return rval;
+  _moab->create_element(moab::MBTRI,connectivity,3,triangle);
+  return triangle;
 }
 
 bool
