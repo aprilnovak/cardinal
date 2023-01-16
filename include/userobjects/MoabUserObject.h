@@ -73,6 +73,14 @@ class MoabUserObject : public GeneralUserObject
    */
   virtual void setScaling(const Real & scale) { _scaling = scale; }
 
+  /**
+   * Get variable number in the auxiliary system
+   * @param[in] name variable name
+   * @param[in] param_name parameter name, for printing a helpful error message
+   * @return variable number
+   */
+  unsigned int getAuxiliaryVariableNumber(const std::string & name, const std::string & param_name) const;
+
   /// Intialise objects needed to perform binning of elements
   void initBinningData();
 
@@ -392,6 +400,12 @@ private:
    * for a TET10 element. We re-build the libMesh element into first-order MOAB elements.
    */
   std::vector<std::vector<unsigned int>> _tet10_nodes;
+
+  /// Auxiliary variable number for temperature
+  unsigned int _temperature_var_num;
+
+  /// Auxiliary variable number for density
+  unsigned int _density_var_num;
 
   const int INVALID_POINT_LOCATOR = -1;
 };

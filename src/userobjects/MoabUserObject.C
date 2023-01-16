@@ -3,6 +3,7 @@
 #include "MoabUserObject.h"
 #include "DisplacedProblem.h"
 #include "VariadicTable.h"
+#include "AuxiliarySystem.h"
 #include "BinUtility.h"
 #include "GeometryUtility.h"
 #include "UserErrorChecking.h"
@@ -35,7 +36,7 @@ MoabUserObject::validParams()
   params.addParam<std::string>("density", "Density variable by which to bin elements");
   params.addRangeCheckedParam<Real>("density_min", 0.0, "density_min >= 0.0", "Lower bound of density bins");
   params.addParam<Real>("density_max", "Upper bound of density bins");
-  params.addRangeCheckedParam<unsigned int>("n_density_bins", "n_density_bins > 0", "Number of relative density bins");
+  params.addRangeCheckedParam<unsigned int>("n_density_bins", "n_density_bins > 0", "Number of density bins");
   params.addParam<double>("density_scale", 1.,"Scale factor to convert densities from from MOOSE to OpenMC (latter is g/cc).");
 
   // Mesh metadata
@@ -127,6 +128,16 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     checkUnusedParam(parameters, "graveyard_scale_outer", "'build_graveyard' is false");
   }
 
+  // get variable numbers
+  _temperature_var_num = getAuxiliaryVariableNumber(_temperature_name, "temperature");
+  if (_bin_by_density)
+  {
+    if (_temperature_name == den_var_name)
+      mooseError("The 'temperature' and 'density' variables cannot be the same!");
+
+    _density_var_num = getAuxiliaryVariableNumber(den_var_name, "density");
+  }
+
   // If no alternative names were provided for openmc materials
   // assume they are the same as in MOOSE
   if(openmc_mat_names.empty()){
@@ -155,6 +166,15 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _tet10_nodes.push_back({4,5,9,8});
   _tet10_nodes.push_back({4,7,9,6});
   _tet10_nodes.push_back({4,9,5,6});
+}
+
+unsigned int
+MoabUserObject::getAuxiliaryVariableNumber(const std::string & name, const std::string & param_name) const
+{
+  if (!_fe_problem.getAuxiliarySystem().hasVariable(name))
+    paramError(param_name, "Cannot find auxiliary variable '", name , "'!");
+
+  return _fe_problem.getAuxiliarySystem().getFieldVariable<Real>(0, name).number();
 }
 
 MeshBase&
@@ -795,7 +815,7 @@ MoabUserObject::evalMeshFunction(std::shared_ptr<MeshFunction> meshFunctionPtr,
 void
 MoabUserObject::sortElemsByResults()
 {
-   // Clear any prior data;
+   // Clear any prior data
   resetContainers();
 
   // accumulate information for printing diagnostics

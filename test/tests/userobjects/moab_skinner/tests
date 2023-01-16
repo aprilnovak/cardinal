@@ -100,4 +100,27 @@
     requirement = "The system shall error if the outer graveyard surface is not larger than the inner graveyard surface"
     required_objects = 'DagMCPostprocessor'
   []
+  [no_aux_temp]
+    type = RunException
+    input = missing.i
+    expect_err = "Cannot find auxiliary variable 'temp'!"
+    requirement = "The system shall error if the specified temperature auxiliary variable cannot be found"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [no_aux_density]
+    type = RunException
+    input = all_bins.i
+    cli_args = 'UserObjects/moab/density="den"'
+    expect_err = "Cannot find auxiliary variable 'den'!"
+    requirement = "The system shall error if the specified density auxiliary variable cannot be found"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [overlap_t_rho]
+    type = RunException
+    input = all_bins.i
+    cli_args = 'UserObjects/moab/density="temp"'
+    expect_err = "The 'temperature' and 'density' variables cannot be the same!"
+    requirement = "The system shall error if the specified density and temperature auxiliary variables are the same"
+    required_objects = 'DagMCPostprocessor'
+  []
 []
