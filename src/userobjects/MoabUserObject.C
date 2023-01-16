@@ -803,11 +803,15 @@ MoabUserObject::sortElemsByResults()
   std::vector<unsigned int> n_temp_hits(_n_temperature_bins, 0);
   std::vector<unsigned int> n_density_hits(_n_density_bins, 0);
 
-  for (const auto & elem : mesh().active_local_element_ptr_range())
+  for (unsigned int e = 0; e < _fe_problem.mesh().nElem(); ++e)
   {
+    const auto * elem = _fe_problem.mesh().queryElemPtr(e);
+    if (!elem)
+      continue;
+
     Point p = elem->vertex_average();
 
-    // bin by block ID
+    // bin by subdomain ID
     auto iMat = _blocks.at(elem->subdomain_id());
     n_block_hits[iMat] += 1;
 
@@ -845,17 +849,6 @@ MoabUserObject::sortElemsByResults()
       _console << "\nMapping of Elements to Density Bins:" << std::endl;
       vtd.print(_console);
     }
-  }
-
-  // Wait for all processes to finish
-  comm().barrier();
-
-  // MPI communication
-  for( unsigned int iSortBin=0; iSortBin< _elem_bins.size(); iSortBin++){
-    // Get a reference
-    std::set<dof_id_type>& sortedBinElems = _elem_bins.at(iSortBin);
-    // Get the union of the set over all procs
-    communicateDofSet(sortedBinElems);
   }
 }
 
@@ -899,12 +892,6 @@ MoabUserObject::getDensityBin(const Point & p) const
       "  value: ", value, "\n  density_max: ", _density_max);
 
   return bin_utility::linearBin(value, _density_bin_bounds);
-}
-
-void
-MoabUserObject::communicateDofSet(std::set<dof_id_type>& dofset)
-{
-  comm().set_union(dofset);
 }
 
 bool
@@ -1374,6 +1361,22 @@ MoabUserObject::createTri(const std::vector<moab::EntityHandle> & vertices,unsig
   rval = _moab->create_element(moab::MBTRI,connectivity,3,triangle);
   surface_tris.insert(triangle);
   return rval;
+}
+
+bool
+MoabUserObject::isLocalElem(const Elem * elem) const
+{
+  if (!elem)
+  {
+    // we should only not be able to find an element if the mesh is distributed
+    libmesh_assert(!_mesh.is_serial());
+    return false;
+  }
+
+  if (elem->processor_id() == _communicator.rank())
+    return true;
+
+  return false;
 }
 
 #endif

@@ -41,6 +41,12 @@ class MoabUserObject : public GeneralUserObject
   virtual void threadJoin(const UserObject & /*uo*/) override {};
 
   /**
+   * Whether the element is owned by this rank
+   * @return whether element is owned by this rank
+   */
+  bool isLocalElem(const Elem * elem) const;
+
+  /**
    * Get the bin index for the temperature
    * @param[in] pt point
    * @return temperature bin index
@@ -66,8 +72,6 @@ class MoabUserObject : public GeneralUserObject
    * @param[in] scale multiplier
    */
   virtual void setScaling(const Real & scale) { _scaling = scale; }
-
-  virtual const std::map<SubdomainID, unsigned int> & getMaterialBlocks() const { return _blocks; }
 
   /// Intialise objects needed to perform binning of elements
   void initBinningData();
@@ -251,17 +255,11 @@ private:
   /// Write MOAB volume and/or skin meshes to file
   virtual void write();
 
-  /// MPI communication of DOFs of binned elements
-  void communicateDofSet(std::set<dof_id_type>& dofset);
+  /// Moab skinner for finding temperature surfaces
+  std::unique_ptr<moab::Skinner> skinner;
 
-  /// Pointer to the feProblem we care about
-  FEProblemBase * _problem_ptr;
-
-  /// Pointer to a moab skinner for finding temperature surfaces
-  std::unique_ptr< moab::Skinner > skinner;
-
-  /// Pointer for gtt for setting surface sense
-  std::unique_ptr< moab::GeomTopoTool > gtt;
+  /// Topology tool for setting surface sense
+  std::unique_ptr<moab::GeomTopoTool> gtt;
 
   /// Convert MOOSE density units to openmc density units
   double densityscale;
