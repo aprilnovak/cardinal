@@ -92,4 +92,12 @@
     requirement = "The system shall error if the skinned mesh does not contain tetrahedral elements"
     required_objects = 'DagMCPostprocessor'
   []
+  [invalid_graveyard_scales]
+    type = RunException
+    input = graveyard.i
+    cli_args = 'UserObjects/moab/graveyard_scale_outer=1.01'
+    expect_err = "'graveyard_scale_outer' must be greater than 'graveyard_scale_inner'!"
+    requirement = "The system shall error if the outer graveyard surface is not larger than the inner graveyard surface"
+    required_objects = 'DagMCPostprocessor'
+  []
 []
