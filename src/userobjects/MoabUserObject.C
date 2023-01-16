@@ -725,33 +725,6 @@ MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsig
   return soln_index;
 }
 
-NumericVector<Number>&
-MoabUserObject::getSerialisedSolution(libMesh::System* sysPtr)
-{
-  if(sysPtr==nullptr) mooseError("System pointer is null");
-
-  // Get the index of this system
-  unsigned int iSysNow = sysPtr->number();
-
-  // Look up if we already have the serial solution
-  if(serial_solutions.find(iSysNow)==serial_solutions.end()){
-    // Initialize the serial solution vector
-    // N.B. For big problems this is going to be a memory bottleneck
-    auto serial_solution = NumericVector<Number>::build(comm());
-    serial_solution->init(sysPtr->n_dofs(), false, SERIAL);
-
-    // Pull down a full copy of this vector on every processor
-    sysPtr->solution->localize(*serial_solution);
-
-    // Move the unique pointer to the map
-    serial_solutions[iSysNow] = std::move(serial_solution);
-  }
-
-  // Return a reference
-  NumericVector<Number>& solution_ref = *(serial_solutions[iSysNow]);
-  return solution_ref;
-}
-
 void
 MoabUserObject::sortElemsByResults()
 {

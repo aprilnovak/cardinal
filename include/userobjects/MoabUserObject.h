@@ -219,9 +219,6 @@ private:
   /// Helper method to convert between elem / solution indices
   dof_id_type elem_to_soln_index(const Elem& elem,unsigned int iSysNow, unsigned int iVarNow);
 
-  /// Get a serialised version of solution for a given system
-  NumericVector<Number>& getSerialisedSolution(libMesh::System* sysPtr);
-
   /// Sort all the elements in the [Mesh] into bins for temperature, density, and subdomain.
   virtual void sortElemsByResults();
 
