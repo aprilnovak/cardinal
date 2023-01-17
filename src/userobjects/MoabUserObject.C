@@ -229,8 +229,7 @@ MoabUserObject::execute()
 void
 MoabUserObject::update()
 {
-  std::cout << "execute" << std::endl;
-  // Clear MOAB mesh data from last timestep; TODO: how does this relate to fixed_mesh?
+  // Clear MOAB mesh data from last timestep
   reset();
 
   _serialized_solution->init(_fe_problem.getAuxiliarySystem().sys().n_dofs(), false, SERIAL);
@@ -245,7 +244,6 @@ MoabUserObject::update()
 
   // Find the surfaces of local temperature regions
   findSurfaces();
-  std::cout << "done executing" << std::endl;
 }
 
 void
@@ -365,15 +363,14 @@ MoabUserObject::createTags()
   _moab->tag_set_data(geometry_resabs_tag, &_meshset, 1, &_geom_tol);
 }
 
-moab::ErrorCode
+void
 MoabUserObject::createGroup(unsigned int id, std::string name,moab::EntityHandle& group_set)
 {
   // Create a new mesh set
-  moab::ErrorCode rval = _moab->create_meshset(moab::MESHSET_SET,group_set);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  _moab->create_meshset(moab::MESHSET_SET,group_set);
 
   // Set the tags for this material
-  return setTags(group_set,name,"Group",id,4);
+  setTags(group_set,name,"Group",id,4);
 }
 
 
@@ -533,11 +530,17 @@ MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsig
   return soln_index;
 }
 
+unsigned int
+MoabUserObject::nBins() const
+{
+  return _n_block_bins * _n_density_bins * _n_temperature_bins;
+}
+
 void
 MoabUserObject::sortElemsByResults()
 {
-   // Clear any prior data
-  resetContainers();
+  _elem_bins.clear();
+  _elem_bins.resize(nBins());
 
   // accumulate information for printing diagnostics
   std::vector<unsigned int> n_block_hits(_n_block_bins, 0);
@@ -673,8 +676,7 @@ MoabUserObject::findSurfaces()
           int iSortBin = getBin(iVar,iDen,iMat);
           moab::EntityHandle group_set;
           unsigned int group_id = iSortBin+1;
-          rval = createGroup(group_id,updated_mat_name,group_set);
-          if(rval != moab::MB_SUCCESS) return false;
+          createGroup(group_id,updated_mat_name,group_set);
 
           // Sort elems in this mat-density-temp bin into local regions
           std::vector<moab::Range> regions;
@@ -821,29 +823,6 @@ MoabUserObject::groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::R
  }
 
 void
-MoabUserObject::resetContainers()
-{
-  unsigned int nSortBins = _n_block_bins*_n_density_bins*_n_temperature_bins;
-  _elem_bins.clear();
-  _elem_bins.resize(nSortBins);
-
-  // Update the serial solutions
-  for(const auto& sol :  serial_solutions){
-    System & sys = 	systems().get_system(sol.first);
-
-    // Check if solution vector size has changed, e.g. due to mesh refinement
-    if(sys.n_dofs() != sol.second->size()){
-      // clear
-      sol.second->init(0,false,SERIAL);
-      // resize
-      sol.second->init(sys.n_dofs(),false,SERIAL);
-    }
-
-    sys.solution->localize(*sol.second);
-  }
-}
-
-void
 MoabUserObject::reset()
 {
   if (!_fixed_mesh)
@@ -980,11 +959,9 @@ MoabUserObject::createSurfaces(moab::Range& faces, VolData& voldata, unsigned in
 void
 MoabUserObject::buildGraveyard( unsigned int & vol_id, unsigned int & surf_id)
 {
-  moab::ErrorCode rval(moab::MB_SUCCESS);
-
   // Create the graveyard set
   moab::EntityHandle graveyard;
-  unsigned int id = _n_block_bins * _n_temperature_bins * _n_density_bins + 1;
+  unsigned int id = nBins() + 1;
   std::string mat_name = "mat:Graveyard";
   createGroup(id,mat_name,graveyard);
 

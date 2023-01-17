@@ -44,6 +44,12 @@ public:
   virtual void update();
 
   /**
+   * Get the total number of bins
+   * @return total number of bins
+   */
+  unsigned int nBins() const;
+
+  /**
    * Whether the element is owned by this rank
    * @return whether element is owned by this rank
    */
@@ -210,7 +216,7 @@ protected:
   virtual void createTags();
 
   /// Helper method to create MOAB group entity set
-  moab::ErrorCode createGroup(unsigned int id, std::string name,moab::EntityHandle& group_set);
+  void createGroup(unsigned int id, std::string name,moab::EntityHandle& group_set);
 
   /// Helper method to create MOAB volume entity set
   moab::ErrorCode createVol(unsigned int id,moab::EntityHandle& volume_set,moab::EntityHandle group_set);
@@ -293,9 +299,6 @@ protected:
     return getMatBin(iVarBin,iDenBin,_n_temperature_bins,_n_density_bins);
   }
 
-  /// Clear the containers of elements grouped into bins of constant temp
-  void resetContainers();
-
   /// Clear MOAB entity sets
   bool resetMOAB();
 
@@ -337,12 +340,6 @@ protected:
 
   /// Mapping from total bin ID to a set of elements sorted into that bin
   std::vector<std::set<dof_id_type>> _elem_bins;
-
-  /// A place to store the entire solution
-  // N.B. For big problems this is going to be a memory bottleneck
-  // TODO: We will need to come up with a better solution
-  // Map is from systems index
-  std::map<unsigned int, std::unique_ptr<NumericVector<Number> > > serial_solutions;
 
   // Materials data
 
