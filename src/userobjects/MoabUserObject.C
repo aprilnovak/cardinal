@@ -107,7 +107,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
     _density_min = getParam<Real>("density_min");
     _density_max = getParam<Real>("density_max");
     _n_density_bins = getParam<unsigned int>("n_density_bins");
-    den_var_name = getParam<std::string>("density");
+    _density_name = getParam<std::string>("density");
     _density_bin_width = (_density_max - _density_min) / _n_density_bins;
 
     if (_density_max < _density_min)
@@ -137,10 +137,10 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _temperature_var_num = getAuxiliaryVariableNumber(_temperature_name, "temperature");
   if (_bin_by_density)
   {
-    if (_temperature_name == den_var_name)
+    if (_temperature_name == _density_name)
       mooseError("The 'temperature' and 'density' variables cannot be the same!");
 
-    _density_var_num = getAuxiliaryVariableNumber(den_var_name, "density");
+    _density_var_num = getAuxiliaryVariableNumber(_density_name, "density");
   }
 
   // If no alternative names were provided for openmc materials
@@ -627,12 +627,12 @@ MoabUserObject::getDensityBin(const Elem * const elem) const
 
   // TODO: add option to truncate instead
   if (value < _density_min)
-    mooseError("Variable '", den_var_name, "' has value below minimum range of bins. "
+    mooseError("Variable '", _density_name, "' has value below minimum range of bins. "
       "Please decrease 'density_min'.\n\n"
       "  value: ", value, "\n  density_min: ", _density_min);
 
   if (value > _density_max)
-    mooseError("Variable '", den_var_name, "' has value above maximum range of bins. "
+    mooseError("Variable '", _density_name, "' has value above maximum range of bins. "
       "Please increase 'density_max'.\n\n"
       "  value: ", value, "\n  density_max: ", _density_max);
 

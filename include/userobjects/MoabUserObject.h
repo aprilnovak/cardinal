@@ -321,7 +321,7 @@ protected:
   moab::EntityHandle offset;
 
   /// Name of the MOOSE variable containing the density
-  std::string den_var_name;
+  std::string _density_name;
 
   /// Lower bound of density bins
   Real _density_min;
