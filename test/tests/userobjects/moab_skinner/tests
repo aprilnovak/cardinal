@@ -33,6 +33,24 @@
     requirement = "The system shall output the MOAB mesh skins generated from libMesh"
     required_objects = 'DagMCPostprocessor'
   []
+  [convert_skin_to_gmsh0]
+    type = RunCommand
+    prereq = output_skins
+    command = '../../../../install/bin/mbconvert moab_skins_0.h5m skins0.msh'
+    requirement = "The system shall be able to convert a .h5m file to VTK"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [check_skins0]
+    type = Exodiff
+    prereq = convert_skin_to_gmsh0
+    input = read_skins0.i
+    exodiff = read_skins0_in.e
+    cli_args = '--mesh-only'
+    requirement = "The system shall properly generate MOAB surface skins in-memory. We check this in "
+                  "a somewhat circuitous manner by writing the skins, then converting it to gmsh, and "
+                  "finally re-reading it into MOOSE so that we can use the Exodiff utility."
+  []
+
   [var_bins]
     type = Exodiff
     input = var_bins.i
