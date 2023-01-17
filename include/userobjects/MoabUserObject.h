@@ -111,12 +111,6 @@ public:
   /// TODO Clear mesh data
   void reset();
 
-  /// TODO Retrieve a list of original material names and properties
-  void getMaterialProperties(std::vector<std::string>& mat_names_out,
-                             std::vector<double>& initial_densities,
-                             std::vector<std::string>& tails,
-                             std::vector<MOABMaterialProperties>& properties);
-
   /// MOAB interface
   std::shared_ptr<moab::Interface> _moab;
 
@@ -291,13 +285,13 @@ protected:
   /// NB elems in param is a copy, localElems is a reference
   void groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::Range>& localElems);
 
-  /// Map density and temp bin indices onto a linearised index
-  int getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int _n_density_binsIn);
-  /// Map density and temp bin indices onto a linearised index
-  /// with default parameters for number of bins
-  int getMatBin(int iVarBin, int iDenBin){
-    return getMatBin(iVarBin,iDenBin,_n_temperature_bins,_n_density_bins);
-  }
+  /**
+   * Get a unique index for an OpenMC material (which we can simply take as the density bin,
+   * because in OpenMC you can set a unique temperature on different cells filled with the
+   * same material, but this is not the case for density).
+   * @return OpenMC material index
+   */
+  unsigned int getMatBin(const unsigned int & iDenBin) const;
 
   /// Clear MOAB entity sets
   bool resetMOAB();

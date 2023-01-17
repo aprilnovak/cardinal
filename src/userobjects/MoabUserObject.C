@@ -474,47 +474,6 @@ MoabUserObject::setTagData(moab::Tag tag, moab::EntityHandle ent, void* data)
   return _moab->tag_set_data(tag,&ent,1,data);
 }
 
-void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_out,
-                                           std::vector<double>& initial_densities,
-                                           std::vector<std::string>& tails,
-                                           std::vector<MOABMaterialProperties>& properties)
-{
-  // We shouldn't be calling this if we didn't provide any materials
-  if(openmc_mat_names.empty())
-    mooseError("No material names were provided.");
-
-  // Set the list of materials names we expect to find in openmc
-  mat_names_out=openmc_mat_names;
-
-  tails.clear();
-  properties.clear();
-
-  // Loop over density bins
-  for(unsigned int iDen=0; iDen<_n_density_bins; iDen++){
-
-    // Retrieve the relative density
-    double rel_den = bin_utility::midpoint(iDen, _density_bin_bounds);
-
-    // Loop over temperature bins
-    for(unsigned int iVar=0; iVar<_n_temperature_bins; iVar++){
-      // Retrieve the average bin temperature
-      double temp = bin_utility::midpoint(iVar, _temperature_bin_bounds);
-
-      // Get the name modifier
-      int iNewMatBin = getMatBin(iVar,iDen);
-      std::string tail ="_"+std::to_string(iNewMatBin);
-      tails.push_back(tail);
-
-      // Save material properties
-      MOABMaterialProperties mat_props;
-      mat_props.temp = temp;
-      mat_props.rel_density = rel_den;
-      properties.push_back(mat_props);
-    }
-  }
-}
-
-
 dof_id_type
 MoabUserObject::elem_to_soln_index(const Elem& elem,unsigned int iSysNow,  unsigned int iVarNow)
 {
@@ -668,7 +627,7 @@ MoabUserObject::findSurfaces()
 
           // Update material name
           std::string updated_mat_name=mat_name;
-          int iNewMatBin = getMatBin(iVar,iDen);
+          int iNewMatBin = getMatBin(/*iVar,*/iDen);
           updated_mat_name+="_"+std::to_string(iNewMatBin);
 
           // Create a material group
@@ -842,25 +801,11 @@ MoabUserObject::getBin(const unsigned int & iVarBin, const unsigned int & iDenBi
   return _n_temperature_bins * (_n_density_bins * iMat + iDenBin) + iVarBin;
 }
 
-int
-MoabUserObject::getMatBin(int iVarBin, int iDenBin, int n_temperature_binsIn, int _n_density_binsIn)
+unsigned int
+MoabUserObject::getMatBin(const unsigned int & iDenBin) const
 {
-
-  if(iDenBin<0 || iDenBin >= _n_density_binsIn ){
-    std::string err = "Relative density of material fell outside of binning range";
-    mooseError(err);
-  }
-  if(iVarBin<0 || iVarBin >= n_temperature_binsIn ){
-    std::string err = "Relative temperature of material fell outside of binning range";
-    mooseError(err);
-  }
-
-  int _n_block_bins = _n_density_binsIn*_n_temperature_bins;
-  int iMatBin= n_temperature_binsIn*iDenBin + iVarBin;
-  if(iMatBin<0 || iMatBin >= _n_block_bins){
-    mooseError("Cannot find material bin index.");
-  }
-  return iMatBin;
+  return iDenBin;
+  //return _n_temperature_bins * iDenBin + iVarBin; what Helen had, which I don't think needs to consider temp
 }
 
 bool
