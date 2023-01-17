@@ -40,6 +40,9 @@ public:
 
   virtual void threadJoin(const UserObject & /*uo*/) override {};
 
+  /// Perform the skinning operation
+  virtual void update();
+
   /**
    * Whether the element is owned by this rank
    * @return whether element is owned by this rank
@@ -74,6 +77,18 @@ public:
   virtual void setScaling(const Real & scale) { _scaling = scale; }
 
   /**
+   * Set the verbosity level
+   * @param[in] verbose whether to print diagnostic information
+   */
+  virtual void setVerbosity(const bool & verbose) { _verbose = verbose; }
+
+  /**
+   * Indicate whether this userobject is run by itself (for testing purposes)
+   * or controlled by some other class.
+   */
+  virtual void makeDependentOnExternalAction() { _standalone = false; }
+
+  /**
    * Get variable number in the auxiliary system
    * @param[in] name variable name
    * @param[in] param_name parameter name, for printing a helpful error message
@@ -106,7 +121,7 @@ protected:
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
 
   /// Whether to print diagnostic information
-  const bool & _verbose;
+  bool _verbose;
 
   /// Whether to build a graveyard as two additional cube surfaces surrounding the mesh.
   const bool & _build_graveyard;
@@ -158,6 +173,9 @@ protected:
   /// Count number of times file has been written to
   unsigned int _n_write;
 
+  /// Whether this class runs by itself, or is controlled by an external class
+  bool _standalone;
+
   /// Encode the whether the surface normal faces into or out of the volume
   enum Sense { BACKWARDS=-1, FORWARDS=1};
 
@@ -176,12 +194,8 @@ protected:
   /// Get a modifyable reference to the underlying libmesh system
   System& system(std::string var_now);
 
-  // Helper methods to set MOAB database
-
-  /// Helper method to create MOAB nodes
-  moab::ErrorCode createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle);
   /// Helper method to create MOAB elements
-  void createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle);
+  void createMOABElems();
 
   /// Helper method to create MOAB tags
   moab::ErrorCode createTags();
@@ -248,12 +262,6 @@ protected:
 
   /// Store a mapping from [Mesh] subdomain IDs to an index, to be used for binning by block ID
   virtual void findBlocks();
-
-  /// Clear the maps between entity handles and dof ids
-  void clearElemMaps();
-
-  /// Add an element to maps
-  void addElem(dof_id_type id,moab::EntityHandle ent);
 
   /// Helper method to convert between elem / solution indices
   dof_id_type elem_to_soln_index(const Elem& elem,unsigned int iSysNow, unsigned int iVarNow);

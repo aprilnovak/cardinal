@@ -81,7 +81,8 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   _output_skins(getParam<bool>("output_skins")),
   _output_full(getParam<bool>("output_full")),
   _scaling(1.0),
-  _n_write(0)
+  _n_write(0),
+  _standalone(true)
 {
   // Create MOAB interface
   _moab = std::make_shared<moab::Core>();
@@ -217,18 +218,20 @@ MoabUserObject::initialize()
   if(rval!=moab::MB_SUCCESS)
     mooseError("Could not set up tags");
 
-  std::map<dof_id_type,moab::EntityHandle> node_id_to_handle;
-  rval = createNodes(node_id_to_handle);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Could not create nodes");
-
-  createElems(node_id_to_handle);
+  createMOABElems();
 
   findBlocks();
 }
 
 void
 MoabUserObject::execute()
+{
+  if (_standalone)
+    update();
+}
+
+void
+MoabUserObject::update()
 {
   std::cout << "execute" << std::endl;
   // Clear MOAB mesh data from last timestep
@@ -237,7 +240,7 @@ MoabUserObject::execute()
   _serialized_solution->init(_fe_problem.getAuxiliarySystem().sys().n_dofs(), false, SERIAL);
   _fe_problem.getAuxiliarySystem().solution().localize(*_serialized_solution);
 
-  // Re-initialise the mesh data
+  // Re-initialise the mesh data; TODO: can probably do most of this just 1 time
   initialize();
 
   // Sort libMesh elements into bins
@@ -260,56 +263,31 @@ MoabUserObject::findBlocks()
   _n_block_bins = _blocks.size();
 }
 
-moab::ErrorCode
-MoabUserObject::createNodes(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
+void
+MoabUserObject::createMOABElems()
 {
-  moab::ErrorCode rval(moab::MB_SUCCESS);
+  // Clear prior results
+  _id_to_elem_handles.clear();
 
-  // Clear prior results.
-  node_id_to_handle.clear();
+  std::map<dof_id_type,moab::EntityHandle> node_id_to_handle;
 
-  // Init array for MOAB node coords
-  double 	coords[3];
+  double coords[3];
 
-  // TODO think about how the mesh is distributed...
-  // Iterate over nodes in libmesh
-  auto itnode = mesh().nodes_begin();
-  auto endnode = mesh().nodes_end();
-  for( ; itnode!=endnode; ++itnode){
-    // Fetch a const ref to node
-    const Node& node = **itnode;
-
+  // Save all the node information
+  for (const auto & node : _fe_problem.mesh().getMesh().node_ptr_range())
+  {
     // Fetch coords (and scale to correct units)
-    coords[0]=_scaling*double(node(0));
-    coords[1]=_scaling*double(node(1));
-    coords[2]=_scaling*double(node(2));
-
-    // Fetch ID
-    dof_id_type id = node.id();
+    coords[0] = _scaling * (*node)(0);
+    coords[1] = _scaling * (*node)(1);
+    coords[2] = _scaling * (*node)(2);
 
     // Add node to MOAB database and get handle
     moab::EntityHandle ent(0);
-    rval = _moab->create_vertex(coords,ent);
-    if(rval!=moab::MB_SUCCESS){
-      node_id_to_handle.clear();
-      return rval;
-    }
+    _moab->create_vertex(coords, ent);
 
-    // Save mapping of ids.
-    node_id_to_handle[id] = ent;
-
+    // Save mapping of libMesh IDs to MOAB vertex handles
+    node_id_to_handle[node->id()] = ent;
   }
-
-  return rval;
-}
-
-void
-MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to_handle)
-{
-  moab::ErrorCode rval(moab::MB_SUCCESS);
-
-  // Clear prior results.
-  clearElemMaps();
 
   moab::Range all_elems;
 
@@ -319,43 +297,31 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
     auto nodeSets = getTetSets(elem->type());
 
     // Get the connectivity
-    std::vector< dof_id_type > conn_libmesh;
-    elem->connectivity(0,libMesh::IOPackage::VTK,conn_libmesh);
-    if(conn_libmesh.size()!=elem->n_nodes())
-      mooseError("Element connectivity is inconsistent");
+    std::vector<dof_id_type> conn_libmesh;
+    elem->connectivity(0, libMesh::IOPackage::VTK, conn_libmesh);
 
     // Loop over sub tets
-    for(const auto& nodeSet: nodeSets){
-
+    for(const auto & nodeSet: nodeSets)
+    {
       // Set MOAB connectivity
       std::vector<moab::EntityHandle> conn(NODES_PER_MOAB_TET);
-      for(unsigned int iNode=0; iNode<NODES_PER_MOAB_TET;++iNode){
-
+      for (unsigned int i = 0; i < NODES_PER_MOAB_TET ; ++i)
+      {
         // Get the elem node index of the ith node of the sub-tet
-        unsigned int nodeIndex = nodeSet.at(iNode);
-
-        if(nodeIndex >= conn_libmesh.size())
-          mooseError("Element index is out of range");
-
-        // Get node's entity handle
-        if(node_id_to_handle.find(conn_libmesh.at(nodeIndex)) ==
-           node_id_to_handle.end())
-          mooseError("Could not find node entity handle");
-
-        conn[iNode]=node_id_to_handle[conn_libmesh.at(nodeIndex)];
+        unsigned int nodeIndex = nodeSet.at(i);
+        conn[i] = node_id_to_handle[conn_libmesh.at(nodeIndex)];
       }
 
       // Create an element in MOAB database
       moab::EntityHandle ent(0);
-      rval = _moab->create_element(moab::MBTET,conn.data(),NODES_PER_MOAB_TET,ent);
-      if(rval!=moab::MB_SUCCESS){
-        std::string err="Could not create MOAB element: rval = "
-          +std::to_string(rval);
-        mooseError(err);
-      }
+      _moab->create_element(moab::MBTET,conn.data(),NODES_PER_MOAB_TET,ent);
 
       // Save mapping between libMesh ids and moab handles
-      addElem(elem->id(),ent);
+      auto id = elem->id();
+      if (_id_to_elem_handles.find(id) == _id_to_elem_handles.end())
+        _id_to_elem_handles[id] = std::vector<moab::EntityHandle>();
+
+      _id_to_elem_handles[id].push_back(ent);
 
       // Save the handle for adding to entity sets
       all_elems.insert(ent);
@@ -363,12 +329,7 @@ MoabUserObject::createElems(std::map<dof_id_type,moab::EntityHandle>& node_id_to
   }
 
   // Add the elems to the full meshset
-  rval = _moab->add_entities(meshset,all_elems);
-  if(rval!=moab::MB_SUCCESS){
-    std::string err="Could not create meshset: rval = "
-      +std::to_string(rval);
-    mooseError(err);
-  }
+  _moab->add_entities(meshset, all_elems);
 
   // Save the first elem
   offset = all_elems.front();
@@ -530,22 +491,6 @@ moab::ErrorCode
 MoabUserObject::setTagData(moab::Tag tag, moab::EntityHandle ent, void* data)
 {
   return _moab->tag_set_data(tag,&ent,1,data);
-}
-
-void
-MoabUserObject::clearElemMaps()
-{
-  _id_to_elem_handles.clear();
-  offset=0;
-}
-
-void
-MoabUserObject::addElem(dof_id_type id,moab::EntityHandle ent)
-{
-  if(_id_to_elem_handles.find(id)==_id_to_elem_handles.end())
-    _id_to_elem_handles[id]=std::vector<moab::EntityHandle>();
-
-  (_id_to_elem_handles[id]).push_back(ent);
 }
 
 void MoabUserObject::getMaterialProperties(std::vector<std::string>& mat_names_out,
