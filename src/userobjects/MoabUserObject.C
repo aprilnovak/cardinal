@@ -23,6 +23,10 @@ MoabUserObject::validParams()
 {
   InputParameters params = GeneralUserObject::validParams();
   params.addParam<bool>("verbose", false, "Whether to print diagnostic information");
+  params.addParam<bool>("fixed_mesh", true,
+    "Whether the MooseMesh is unchanging during the simulation (true), or whether there is mesh "
+    "movement and/or adaptivity that is changing the mesh in time (false). When the mesh changes "
+    "during the simulation, the MOAB mesh is re-built every time step");
 
   // temperature binning
   params.addRequiredParam<std::string>("temperature", "Temperature variable by which to bin elements");
@@ -65,6 +69,7 @@ MoabUserObject::MoabUserObject(const InputParameters & parameters) :
   GeneralUserObject(parameters),
   _serialized_solution(NumericVector<Number>::build(_communicator).release()),
   _verbose(getParam<bool>("verbose")),
+  _fixed_mesh(getParam<bool>("fixed_mesh")),
   _build_graveyard(getParam<bool>("build_graveyard")),
   _temperature_name(getParam<std::string>("temperature")),
   _temperature_min(getParam<Real>("temperature_min")),
@@ -201,22 +206,13 @@ MoabUserObject::system(std::string var_now)
 void
 MoabUserObject::initialize()
 {
-  // Fetch spatial dimension from libMesh
-  int dim = mesh().spatial_dimension();
-
   // Set spatial dimension in MOAB
-  moab::ErrorCode  rval = _moab->set_dimension(dim);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Failed to set MOAB dimension");
+  _moab->set_dimension(mesh().spatial_dimension());
 
-  //Create a meshset
-  rval = _moab->create_meshset(moab::MESHSET_SET,meshset);
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Failed to create mesh set");
+  // Create a meshset representing all of the MOAB tets
+  _moab->create_meshset(moab::MESHSET_SET, _meshset);
 
-  rval = createTags();
-  if(rval!=moab::MB_SUCCESS)
-    mooseError("Could not set up tags");
+  createTags();
 
   createMOABElems();
 
@@ -234,14 +230,15 @@ void
 MoabUserObject::update()
 {
   std::cout << "execute" << std::endl;
-  // Clear MOAB mesh data from last timestep
+  // Clear MOAB mesh data from last timestep; TODO: how does this relate to fixed_mesh?
   reset();
 
   _serialized_solution->init(_fe_problem.getAuxiliarySystem().sys().n_dofs(), false, SERIAL);
   _fe_problem.getAuxiliarySystem().solution().localize(*_serialized_solution);
 
-  // Re-initialise the mesh data; TODO: can probably do most of this just 1 time
-  initialize();
+  // Re-initialise the mesh data if the libMesh mesh has changed
+  if (!_fixed_mesh)
+    initialize();
 
   // Sort libMesh elements into bins
   sortElemsByResults();
@@ -329,7 +326,7 @@ MoabUserObject::createMOABElems()
   }
 
   // Add the elems to the full meshset
-  _moab->add_entities(meshset, all_elems);
+  _moab->add_entities(_meshset, all_elems);
 
   // Save the first elem
   offset = all_elems.front();
@@ -346,39 +343,26 @@ MoabUserObject::getTetSets(ElemType type) const
     mooseError("The MoabUserObject can only be used with a tetrahedral [Mesh]!");
 }
 
-
-moab::ErrorCode
+void
 MoabUserObject::createTags()
 {
-  // Create some tags for later use
-  moab::ErrorCode rval = moab::MB_SUCCESS;
-
   // First some built-in MOAB tag types
-  rval = _moab->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER, geometry_dimension_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  _moab->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER, geometry_dimension_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
 
-  rval = _moab->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER, id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS) return rval;
+  _moab->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER, id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT);
 
-  rval = _moab->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE, category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS)  return rval;
+  _moab->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE, category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
 
-  rval = _moab->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE, name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS)  return rval;
+  _moab->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE, name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
 
   // Some tags needed for DagMC
-  rval = _moab->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS)  return rval;
+  _moab->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
 
-  rval = _moab->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
-  if(rval!=moab::MB_SUCCESS)  return rval;
+  _moab->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
 
   // Set the values for DagMC faceting / geometry tolerance tags on the mesh entity set
-  rval = _moab->tag_set_data(faceting_tol_tag, &meshset, 1, &_faceting_tol);
-  if(rval!=moab::MB_SUCCESS)  return rval;
-
-  rval = _moab->tag_set_data(geometry_resabs_tag, &meshset, 1, &_geom_tol);
-  return rval;
+  _moab->tag_set_data(faceting_tol_tag, &_meshset, 1, &_faceting_tol);
+  _moab->tag_set_data(geometry_resabs_tag, &_meshset, 1, &_geom_tol);
 }
 
 moab::ErrorCode
@@ -862,12 +846,12 @@ MoabUserObject::resetContainers()
 void
 MoabUserObject::reset()
 {
-  // Clear data
-  _moab.reset(new moab::Core());
-
-  // Create a skinner and geometry topo tool
-  skinner.reset(new moab::Skinner(_moab.get()));
-  gtt.reset(new moab::GeomTopoTool(_moab.get()));
+  if (!_fixed_mesh)
+  {
+    _moab.reset(new moab::Core());
+    skinner.reset(new moab::Skinner(_moab.get()));
+    gtt.reset(new moab::GeomTopoTool(_moab.get()));
+  }
 
   // Clear entity set maps
   surfsToVols.clear();

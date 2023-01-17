@@ -83,6 +83,12 @@ public:
   virtual void setVerbosity(const bool & verbose) { _verbose = verbose; }
 
   /**
+   * Set whether the libMesh mesh is fixed
+   * @param[in] fixed whether mesh is fixed
+   */
+  virtual void setFixedMesh(const bool & fixed) { _fixed_mesh = fixed; }
+
+  /**
    * Indicate whether this userobject is run by itself (for testing purposes)
    * or controlled by some other class.
    */
@@ -122,6 +128,9 @@ protected:
 
   /// Whether to print diagnostic information
   bool _verbose;
+
+  /// Whether the libMesh mesh is fixed in time (e.g. no spatial deformations or refinement)
+  bool _fixed_mesh;
 
   /// Whether to build a graveyard as two additional cube surfaces surrounding the mesh.
   const bool & _build_graveyard;
@@ -198,7 +207,7 @@ protected:
   void createMOABElems();
 
   /// Helper method to create MOAB tags
-  moab::ErrorCode createTags();
+  virtual void createTags();
 
   /// Helper method to create MOAB group entity set
   moab::ErrorCode createGroup(unsigned int id, std::string name,moab::EntityHandle& group_set);
@@ -340,8 +349,8 @@ protected:
   /// Blocks in the [Mesh]
   std::map<SubdomainID, unsigned int> _blocks;
 
-  /// An entitiy handle to represent the set of all tets
-  moab::EntityHandle meshset;
+  /// Entity handle to represent the set of all tets
+  moab::EntityHandle _meshset;
 
   /// Save some topological data: map from surface handle to vol handle and sense
   std::map<moab::EntityHandle, std::vector<VolData> > surfsToVols;
