@@ -7,6 +7,24 @@
     requirement = "The system shall output the MOAB mesh copied from libMesh"
     required_objects = 'DagMCPostprocessor'
   []
+  [convert_to_gmsh0]
+    type = RunCommand
+    prereq = output_full
+    command = '../../../../install/bin/mbconvert moab_full_0.h5m full0.msh'
+    requirement = "The system shall be able to convert a .h5m file to VTK"
+    required_objects = 'DagMCPostprocessor'
+  []
+  [check_volume0]
+    type = Exodiff
+    prereq = convert_to_gmsh0
+    input = read_volume0.i
+    exodiff = read_volume0_in.e
+    cli_args = '--mesh-only'
+    requirement = "The system shall properly convert from libMesh to MOAB meshes in-memory. We check this in "
+                  "a somewhat circuitous manner by writing the volume mesh, then converting it to gmsh, and "
+                  "finally re-reading it into MOOSE so that we can use the Exodiff utility."
+  []
+
   [output_skins]
     type = CheckFiles
     input = var_bins.i
