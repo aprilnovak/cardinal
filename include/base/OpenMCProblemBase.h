@@ -71,6 +71,13 @@ public:
   openmc::TallyEstimator tallyEstimator(tally::TallyEstimatorEnum estimator) const;
 
   /**
+   * Find the geometry type in the OpenMC model
+   * @param[out] has_csg_universe whether there is at least 1 CSG universe
+   * @param[out] has_dag_universe whether there is at least 1 DagMC universe
+   */
+  virtual void geometryType(bool & has_csg_universe, bool & has_dag_universe) const;
+
+  /**
    * Check whether the user has already created a variable using one of the protected
    * names that the OpenMC wrapping is using.
    * @param[in] name variable name
@@ -327,9 +334,6 @@ protected:
    * in some cases be used for more verbose error messages
    */
   const bool _single_coord_level;
-
-  /// Total number of unique OpenMC cell IDs + instances combinations
-  long unsigned int _n_openmc_cells;
 
   /**
    * Fixed point iteration index used in relaxation; because we sometimes run OpenMC

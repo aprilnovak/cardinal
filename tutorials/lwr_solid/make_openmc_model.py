@@ -64,7 +64,7 @@ materials.export_to_xml()
 # Define problem geometry
 
 # Create cylindrical surfaces
-fuel_or = openmc.ZCylinder(r=0.39218, name='Fuel OR')
+fuel_or = openmc.ZCylinder(r=0.39218, name='Fuel OR', boundary_type='reflective')
 clad_ir = openmc.ZCylinder(r=0.40005, name='Clad IR')
 clad_or = openmc.ZCylinder(r=0.45720, name='Clad OR')
 

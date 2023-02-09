@@ -42,7 +42,7 @@ ENABLE_NEK          ?= yes
 ENABLE_OPENMC       ?= yes
 
 # Whether you want to build OpenMC with DAGMC support; set to anything except 'yes' to skip
-ENABLE_DAGMC        ?= no
+ENABLE_DAGMC        ?= yes
 
 CARDINAL_DIR        := $(abspath $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 CONTRIB_DIR         := $(CARDINAL_DIR)/contrib
@@ -275,6 +275,9 @@ endif
 
 ifeq ($(ENABLE_DAGMC), yes)
   libmesh_CXXFLAGS    += -DENABLE_DAGMC
+
+  # this flag is used in OpenMC; TODO: can I replace ENABLE_DAGMC everywhere with DAGMC?
+  libmesh_CXXFLAGS    += -DDAGMC
 endif
 
 # ======================================================================================

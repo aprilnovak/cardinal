@@ -233,6 +233,9 @@ MoabSkinner::execute()
 void
 MoabSkinner::update()
 {
+  _console << "Skinning geometry into " << _n_temperature_bins << " temperature bins, " <<
+    _n_density_bins << " density bins, and " << _n_block_bins << " block bins... ";
+
   // Clear MOAB mesh data from last timestep
   reset();
 
@@ -247,6 +250,8 @@ MoabSkinner::update()
 
   // Find the surfaces of local temperature regions
   findSurfaces();
+
+  _console << "done" << std::endl;
 }
 
 void
@@ -509,19 +514,19 @@ MoabSkinner::sortElemsByResults()
     Point p = elem->vertex_average();
 
     // bin by subdomain ID
-    auto iMat = getSubdomainBin(elem);
-    n_block_hits[iMat] += 1;
+    auto i_block = getSubdomainBin(elem);
+    n_block_hits[i_block] += 1;
 
     // bin by density
-    auto iDenBin = getDensityBin(elem);
-    n_density_hits[iDenBin] += 1;
+    auto i_density = getDensityBin(elem);
+    n_density_hits[i_density] += 1;
 
     // bin by temperature
     auto iBin = getTemperatureBin(elem);
     n_temp_hits[iBin] += 1;
 
     // Sort elem into a bin
-    auto iSortBin = getBin(iBin, iDenBin, iMat);
+    auto iSortBin = getBin(iBin, i_density, i_block);
     _elem_bins.at(iSortBin).insert(elem->id());
   }
 
@@ -547,7 +552,7 @@ MoabSkinner::sortElemsByResults()
 
     if (_bin_by_density)
     {
-      _console << "\nMapping of Elements to Density Bins:" << std::endl;
+      _console << "\n\nMapping of Elements to Density Bins:" << std::endl;
       vtd.print(_console);
     }
   }
@@ -616,6 +621,15 @@ MoabSkinner::getDensityBin(const Elem * const elem) const
   return bin_utility::linearBin(value, _density_bin_bounds);
 }
 
+std::string
+MoabSkinner::materialName(const unsigned int & block, const unsigned int & density, const unsigned int & temp) const
+{
+  if (_n_density_bins > 1)
+    return "mat:" + _material_names.at(block) + "_" + std::to_string(density);
+  else
+    return "mat:" + _material_names.at(block);
+}
+
 void
 MoabSkinner::findSurfaces()
 {
@@ -628,24 +642,19 @@ MoabSkinner::findSurfaces()
   // Counter for surfaces
   unsigned int surf_id = 0;
 
-  // Loop over material bins
-  for (unsigned int iMat = 0; iMat < _n_block_bins; iMat++)
+  for (unsigned int i_block = 0; i_block < _n_block_bins; i_block++)
   {
-    // Get the base material name:
-    std::string mat_name = "mat:" + _material_names.at(iMat);
-
-    // Loop over density bins
     for (unsigned int iDen = 0; iDen < _n_density_bins; iDen++)
     {
-      // Loop over temperature bins
       for (unsigned int iVar = 0; iVar < _n_temperature_bins; iVar++)
       {
-        // Update material name
-        auto updated_mat_name = mat_name + "_" + std::to_string(getMatBin(iDen));
+        auto updated_mat_name = materialName(i_block, iDen, iVar);
 
         // Create a material group
-        int iSortBin = getBin(iVar, iDen, iMat);
+        int iSortBin = getBin(iVar, iDen, i_block);
 
+        // For DagMC to fill a cell with a material, we first create a group
+        // with that name, and then assign it with createVol (called inside findSurface)
         moab::EntityHandle group_set;
         unsigned int group_id = iSortBin + 1;
         createGroup(group_id, updated_mat_name, group_set);
@@ -796,17 +805,11 @@ MoabSkinner::reset()
 }
 
 unsigned int
-MoabSkinner::getBin(const unsigned int & iVarBin,
-                       const unsigned int & iDenBin,
-                       const unsigned int & iMat) const
+MoabSkinner::getBin(const unsigned int & i_temp,
+                    const unsigned int & i_density,
+                    const unsigned int & i_block) const
 {
-  return _n_temperature_bins * (_n_density_bins * iMat + iDenBin) + iVarBin;
-}
-
-unsigned int
-MoabSkinner::getMatBin(const unsigned int & iDenBin) const
-{
-  return iDenBin;
+  return _n_temperature_bins * (_n_density_bins * i_block + i_density) + i_temp;
 }
 
 void

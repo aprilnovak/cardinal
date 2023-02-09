@@ -32,15 +32,20 @@
 #include "openmc/capi.h"
 #include "openmc/cell.h"
 #include "openmc/constants.h"
+#include "openmc/cross_sections.h"
+#include "openmc/dagmc.h"
 #include "openmc/error.h"
 #include "openmc/particle.h"
 #include "openmc/geometry.h"
 #include "openmc/geometry_aux.h"
+#include "openmc/material.h"
 #include "openmc/message_passing.h"
+#include "openmc/nuclide.h"
 #include "openmc/random_lcg.h"
 #include "openmc/settings.h"
 #include "openmc/summary.h"
 #include "openmc/tallies/trigger.h"
+#include "openmc/universe.h"
 #include "xtensor/xarray.hpp"
 #include "xtensor/xview.hpp"
 
@@ -81,7 +86,7 @@ OpenMCCellAverageProblem::validParams()
       "export_properties",
       false,
       "Whether to export OpenMC's temperature and density properties after updating "
-      "them in the syncSolutions call.");
+      "them from MOOSE.");
   params.addRangeCheckedParam<Real>(
       "scaling",
       1.0,
@@ -224,6 +229,9 @@ OpenMCCellAverageProblem::validParams()
       "symmetry_angle",
       "symmetry_angle > 0 & symmetry_angle <= 180",
       "Angle (degrees) from symmetry plane for which OpenMC model is symmetric");
+
+  params.addParam<UserObjectName>("skinner", "When using DAGMC geometries, an optional skinner that will "
+    "regenerate the OpenMC geometry on-the-fly according to iso-contours of temperature and density");
   return params;
 }
 
@@ -258,7 +266,8 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
     _tally_mesh_from_moose(!isParamValid("mesh_template")),
     _temperature_vars(nullptr),
     _temperature_blocks(nullptr),
-    _symmetry(nullptr)
+    _symmetry(nullptr),
+    _n_openmc_cells(0)
 {
   if (_run_mode == openmc::RunMode::FIXED_SOURCE)
     checkUnusedParam(params, "normalize_by_global_tally", "running OpenMC in fixed source mode");
@@ -354,6 +363,45 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
   }
   else
     checkUnusedParam(params, "first_iteration_particles", "not using Dufek-Gudowski relaxation");
+
+  // OpenMC will throw an error if the geometry contains DAG universes but OpenMC wasn't compiled with DAGMC.
+  // So we can assume that if we have a DAGMC geometry, that we will also by this point have ENABLE_DAGMC.
+
+#ifdef ENABLE_DAGMC
+  bool has_csg;
+  bool has_dag;
+  geometryType(has_csg, has_dag);
+
+  if (!has_dag)
+    checkUnusedParam(params, "skinner", "the OpenMC model does not contain any DagMC universes");
+  else // has some DAGMC geometry
+  {
+    if (isParamValid("skinner"))
+    {
+      // TODO: we currently delete the entire OpenMC geometry, and only re-build the cells
+      // bounded by the skins. We can generalize this to only regenerate any DAGMC universes,
+      // so that CSG cells are untouched by the skinner.
+      if (has_csg && has_dag)
+        mooseError("The 'skinner' can only be used with OpenMC geometries that are entirely DAGMC based.\n"
+          "Your model contains a combination of both CSG and DAG universes.");
+
+      int n_dag = 0;
+      for(const auto& universe: openmc::model::universes)
+      {
+        if (universe->geom_type() == openmc::GeometryType::DAG )
+        {
+          n_dag++;
+          _dagmc_universe_index = openmc::model::universe_map[universe->id_];
+        }
+      }
+
+      if (n_dag > 1)
+        mooseError("Only supports 1 DAGMC universe");
+    }
+  }
+#else
+  checkUnusedParam(params, "skinner", "the OpenMC model does not contain any DagMC universes");
+#endif
 
   _n_particles_1 = nParticles();
 
@@ -477,6 +525,21 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
 }
 
 void
+OpenMCCellAverageProblem::storeInitialMaterials()
+{
+  for (const auto& mat : openmc::model::materials)
+  {
+    std::string mat_name = mat->name_;
+
+    int32_t id = mat->id_;
+    if (_mat_names_to_id.find(mat_name) != _mat_names_to_id.end())
+      mooseError("More than one material found with name ", mat_name, ". Please ensure materials have unique names.");
+
+    _mat_names_to_id[mat_name] = id;
+  }
+}
+
+void
 OpenMCCellAverageProblem::initialSetup()
 {
   OpenMCProblemBase::initialSetup();
@@ -498,11 +561,49 @@ OpenMCCellAverageProblem::initialSetup()
   initializeTallies();
 
   checkMeshTemplateAndTranslations();
+
+  storeInitialMaterials();
+
+#ifdef ENABLE_DAGMC
+  if (isParamValid("skinner"))
+  {
+    auto name = getParam<UserObjectName>("skinner");
+    _skinner = &getUserObject<MoabSkinner>(name);
+
+    if (!_skinner)
+      paramError("skinner", "The 'skinner' user object must be of type MoabSkinner!");
+
+    _skinner->setScaling(_scaling);
+    _skinner->setFixedMesh(_fixed_mesh);
+    _skinner->setVerbosity(_verbose);
+    _skinner->makeDependentOnExternalAction();
+
+    // the skinner expects that there is one OpenMC material per subdomain (otherwise this
+    // indicates that our [Mesh] doesn't match the .h5m model, because DAGMC itself imposes
+    // the one-material-per-cell case. TODO: test
+    std::vector<std::string> mats;
+    for (const auto & s : _subdomain_to_material)
+    {
+      if (s.second.size() > 1)
+        mooseError("The MoabSkinner expects to find one OpenMC material mapped to each [Mesh] subdomain, but\n",
+          s.second.size(), " materials mapped to subdomain ", s.first, ". This indicates that your [Mesh] is not "
+          "consistent with the .h5m model.");
+
+      mats.push_back(materialName(*(s.second.begin())));
+    }
+
+    _skinner->setMaterialNames(mats);
+
+    _skinner->initialize();
+  }
+#endif
 }
 
 void
 OpenMCCellAverageProblem::setupProblem()
 {
+  calculateNumCells();
+
   initializeElementToCellMapping();
 
   getMaterialFills();
@@ -1265,6 +1366,10 @@ OpenMCCellAverageProblem::initializeElementToCellMapping()
                  " MOOSE elements, " + "which occupy a volume of (cm3): " +
                  Moose::stringify(_uncoupled_volume * _scaling * _scaling * _scaling));
 
+  if (_n_openmc_cells < _cell_to_elem.size())
+    mooseError("Internal error: _cell_to_elem has length ", _cell_to_elem.size(), " which should\n"
+      "not exceed the number of OpenMC cells, ", _n_openmc_cells);
+
   // If there is a single coordinate level, we can print a helpful message if there are uncoupled
   // cells in the domain
   auto n_uncoupled_cells = _n_openmc_cells - _cell_to_elem.size();
@@ -1634,6 +1739,9 @@ OpenMCCellAverageProblem::mapElemsToCells()
 
     auto cell_index = _particle.coord(level).cell;
     auto cell_instance = cell_instance_at_level(_particle, level);
+
+    if (cell_instance < 0)
+      mooseError("Somehow got negative instance");
 
     cellInfo cell_info = {cell_index, cell_instance};
 
@@ -2443,16 +2551,14 @@ OpenMCCellAverageProblem::syncSolutions(ExternalProblem::Direction direction)
   {
     case ExternalProblem::Direction::TO_EXTERNAL_APP:
     {
-      // re-establish the mapping from the OpenMC cells to the [Mesh], if needed
-      if (!_first_transfer && !_fixed_mesh)
-        setupProblem();
-
       if (_first_transfer)
       {
         switch (_initial_condition)
         {
           case coupling::hdf5:
           {
+            // if we're reading temperature and density from an existing HDF5 file,
+            // we don't need to send anything in to OpenMC, so we can leave.
             importProperties();
             return;
           }
@@ -2463,6 +2569,8 @@ OpenMCCellAverageProblem::syncSolutions(ExternalProblem::Direction direction)
           }
           case coupling::xml:
           {
+            // if we're just using whatever temperature and density are already in the XML
+            // files, we don't need to send anything in to OpenMC, so we can leave.
             std::string incoming_transfer =
                 _has_fluid_blocks ? "temperature and density" : "temperature";
             _console << "Skipping " << incoming_transfer << " transfer into OpenMC" << std::endl;
@@ -2472,6 +2580,47 @@ OpenMCCellAverageProblem::syncSolutions(ExternalProblem::Direction direction)
             mooseError("Unhandled OpenMCInitialConditionEnum!");
         }
       }
+
+#ifdef ENABLE_DAGMC
+      if (_skinner)
+      {
+        // skin the mesh geometry according to contours in temperature, density, and subdomain
+        _skinner->update();
+
+        // TODO: Helen calls openmc_reset() in entirety
+        openmc::model::universe_cell_counts.clear();
+        openmc::model::universe_level_counts.clear();
+
+        // Clear nuclides, these will get reset in read_ce_cross_sections
+        // Horrible circular logic means that clearing nuclides clears nuclide_map, but
+        // which is needed before nuclides gets reset
+        std::unordered_map<std::string, int> nuclide_map_copy = openmc::data::nuclide_map;
+        openmc::data::nuclides.clear();
+        openmc::data::nuclide_map = nuclide_map_copy;
+
+
+        // Clear existing cell data
+        openmc::model::cells.clear();
+        openmc::model::cell_map.clear();
+
+        // Clear existing surface data
+        openmc::model::surfaces.clear();
+        openmc::model::surface_map.clear();
+
+        //updateMaterials();
+
+        // regenerate the DAGMC geometry
+        reloadDAGMC();
+
+        // we need to then re-establish the data structures that map from OpenMC cells to the [Mesh]
+        // (because the cells changed)
+        setupProblem();
+      }
+#else
+      // re-establish the mapping from the OpenMC cells to the [Mesh] (because the mesh changed)
+      if (!_fixed_mesh)
+        setupProblem();
+#endif
 
       // Because we require at least one of fluid_blocks and solid_blocks, we are guaranteed
       // to be setting the temperature of all of the cells in cell_to_elem - only for the density
@@ -2690,6 +2839,59 @@ OpenMCCellAverageProblem::cellTemperature(const cellInfo & cell_info)
   int err = openmc_cell_get_temperature(material_cell.first, &material_cell.second, &T);
   catchOpenMCError(err, "get temperature of cell " + printCell(cell_info));
   return T;
+}
+
+void
+OpenMCCellAverageProblem::reloadDAGMC()
+{
+#ifdef ENABLE_DAGMC
+
+  // Create a new DagMC, but pass in our MOAB interface
+  _dagmc.reset(new moab::DagMC(_skinner->moabPtr()));
+
+  // Set up geometry in DagMC from already-loaded mesh
+  _dagmc->load_existing_contents();
+
+  // Initialize acceleration data structures
+  _dagmc->init_OBBTree();
+
+  // Get an iterator to the DAGMC universe unique ptr
+  auto univ_it = openmc::model::universes.begin() + _dagmc_universe_index;
+
+  // Remove the old universe
+  openmc::model::universes.erase(univ_it);
+
+  // Create new DAGMC universe
+  openmc::DAGUniverse* dag_univ_ptr = new openmc::DAGUniverse(_dagmc);
+  openmc::model::universes.push_back(std::unique_ptr<openmc::DAGUniverse>(dag_univ_ptr));
+
+  _console << "Re-generating OpenMC model with " << openmc::model::cells.size() << " cells... ";
+
+  // Add cells to universes
+  openmc::populate_universes();
+
+  // Set the root universe
+  openmc::model::root_universe = openmc::find_root_universe();
+  openmc::check_dagmc_root_univ();
+
+  // Final geometry setup and assign temperatures
+  openmc::finalize_geometry();
+
+  // Finalize cross sections having assigned temperatures; TODO: need?
+  openmc::finalize_cross_sections();
+
+  openmc::prepare_distribcell();
+
+  _console << "done" << std::endl;
+#endif
+}
+
+void
+OpenMCCellAverageProblem::calculateNumCells()
+{
+  _n_openmc_cells = 0.0;
+  for (const auto & c : openmc::model::cells)
+    _n_openmc_cells += c->n_instances_;
 }
 
 #endif

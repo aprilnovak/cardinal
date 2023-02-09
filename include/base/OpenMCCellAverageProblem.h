@@ -23,6 +23,11 @@
 #include "openmc/mesh.h"
 #include "SymmetryPointGenerator.h"
 
+#ifdef ENABLE_DAGMC
+#include "MoabSkinner.h"
+#include "DagMC.hpp"
+#endif
+
 /**
  * Mapping of OpenMC to a collection of MOOSE elements, with temperature feedback
  * on solid cells and both temperature and density feedback on fluid cells. The
@@ -169,6 +174,8 @@ public:
   void getTally(const unsigned int & var_num, const std::vector<xt::xtensor<double, 1>> & tally,
     const unsigned int & score, const bool & print_table);
 
+  void storeInitialMaterials();
+
   /**
    * Get the mesh filter(s) for tallies automatically constructed by Cardinal.
    * Multiple mesh filters are only created if the mesh template feature is used.
@@ -285,10 +292,16 @@ public:
    */
   double cellMappedVolume(const cellInfo & cell_info);
 
+  /// Reconstruct the DAGMC geometry after skinning
+  void reloadDAGMC();
+
   /// Constant flag to indicate that a cell/element was unmapped
   static constexpr int32_t UNMAPPED{-1};
 
 protected:
+  /// Calculate the number of unique OpenMC cells (each with a unique ID & instance)
+  void calculateNumCells();
+
   /// Loop over the mapped cells, and build a map between subdomains to OpenMC materials
   void subdomainsToMaterials();
 
@@ -907,7 +920,7 @@ protected:
   std::map<cellInfo, std::unordered_set<SubdomainID>> _cell_to_elem_subdomain;
 
   /// Mapping of elem subdomains to materials
-  std::map<SubdomainID, std::unordered_set<int32_t>> _subdomain_to_material;
+  std::map<SubdomainID, std::set<int32_t>> _subdomain_to_material;
 
   /**
    * A point inside the cell, taken simply as the centroid of the first global
@@ -1065,10 +1078,26 @@ protected:
   /// Number of none elements in each mapped OpenMC cell (global)
   std::map<cellInfo, int> _n_none;
 
+#ifdef ENABLE_DAGMC
+  /// Optional skinner to re-generate the OpenMC geometry on-the-fly for DAGMC models
+  MoabSkinner * _skinner;
+
+  std::shared_ptr<moab::DagMC> _dagmc;
+#endif
+
+  /// Total number of unique OpenMC cell IDs + instances combinations
+  long unsigned int _n_openmc_cells;
+
+  // TODO: do I need this?
+  int32_t _dagmc_universe_index;
+
   /// Conversion rate from eV to Joule
   static constexpr Real EV_TO_JOULE = 1.6022e-19;
 
 private:
+  /// Convenience map of mat name string to its id; TODO: delete?
+  std::map<std::string,int32_t> _mat_names_to_id;
+
   /**
    * Update the number of particles according to the Dufek-Gudowski relaxation scheme
    */

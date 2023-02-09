@@ -30,6 +30,17 @@ public:
 
   virtual void threadJoin(const UserObject & /* uo */) override {}
 
+  /**
+   * Get the material name to assign to a MOAB region according to the block, density, and temperature bins.
+   * We only need to use the subdomain and density bins, because OpenMC allows you to change the temperature
+   * of the same material filling multiple cells.
+   * @param[in] block subdomain bin
+   * @param[in] density density bin
+   * @param[in] temp temperature bin
+   * @return material name
+   */
+  std::string materialName(const unsigned int & block, const unsigned int & density, const unsigned int & temp) const;
+
   /// Perform the skinning operation
   virtual void update();
 
@@ -110,6 +121,8 @@ public:
   virtual unsigned int getBin(const unsigned int & temp_bin,
                               const unsigned int & density_bin,
                               const unsigned int & subdomain_bin) const;
+
+  const std::shared_ptr<moab::Interface> & moabPtr() const { return _moab; }
 
 protected:
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
@@ -301,14 +314,6 @@ protected:
   /// Group a given bin into local regions
   /// NB elems in param is a copy, localElems is a reference
   void groupLocalElems(std::set<dof_id_type> elems, std::vector<moab::Range> & localElems);
-
-  /**
-   * Get a unique index for an OpenMC material (which we can simply take as the density bin,
-   * because in OpenMC you can set a unique temperature on different cells filled with the
-   * same material, but this is not the case for density).
-   * @return OpenMC material index
-   */
-  unsigned int getMatBin(const unsigned int & iDenBin) const;
 
   /// Clear MOAB entity sets
   bool resetMOAB();

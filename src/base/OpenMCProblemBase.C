@@ -142,10 +142,6 @@ OpenMCProblemBase::OpenMCProblemBase(const InputParameters & params)
   // define them on some blocks of the domain for other auxiliary kernel purposes
   setMaterialCoverageCheck(false);
 
-  _n_openmc_cells = 0.0;
-  for (const auto & c : openmc::model::cells)
-    _n_openmc_cells += c->n_instances_;
-
   // establish the local -> global element mapping for convenience
   for (unsigned int e = 0; e < _mesh.nElem(); ++e)
   {
