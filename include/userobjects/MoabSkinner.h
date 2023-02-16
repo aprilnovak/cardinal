@@ -134,6 +134,13 @@ public:
    */
   void setGraveyard(bool build) { _build_graveyard = build; }
 
+  /**
+   * Number of density bins; if greater than 1, this means we must be re-generating
+   * OpenMC materials during the course of the simulation.
+   * @return number of density bins
+   */
+  virtual unsigned int nDensityBins() const { return _n_density_bins; }
+
   const std::shared_ptr<moab::Interface> & moabPtr() const { return _moab; }
 
 protected:

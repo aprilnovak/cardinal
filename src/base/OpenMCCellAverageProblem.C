@@ -573,6 +573,18 @@ OpenMCCellAverageProblem::initialSetup()
     if (!_skinner)
       paramError("skinner", "The 'skinner' user object must be of type MoabSkinner!");
 
+    if (_symmetry)
+      mooseError("Cannot combine the 'skinner' with 'symmetry_mapper'!\n\nWhen using a skinner, "
+        "the [Mesh] must exactly match the underlying OpenMC model, so there is\n"
+        "no need to transform spatial coordinates to map between OpenMC and the [Mesh].");
+
+    // If the density bins are > 1, we need to re-init the OpenMC materials once (between
+    // the first time we read the materials.xml and when we run the first skinned OpenMC
+    // geometry) so that we have unique materials that can be set to individual densities.
+    // This is just not yet implemented.
+    if (_skinner->nDensityBins() > 1)
+      paramError("skinner", "Density binning is not currently supported for the OpenMC wrapping!");
+
     if (!_skinner->hasGraveyard())
     {
       mooseWarning("Overriding graveyard setting on '", Moose::stringify(name), "' user object "
