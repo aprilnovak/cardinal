@@ -78,7 +78,6 @@ MoabSkinner::MoabSkinner(const InputParameters & parameters)
   : GeneralUserObject(parameters),
     _serialized_solution(NumericVector<Number>::build(_communicator).release()),
     _verbose(getParam<bool>("verbose")),
-    _build_graveyard(getParam<bool>("build_graveyard")),
     _temperature_name(getParam<std::string>("temperature")),
     _temperature_min(getParam<Real>("temperature_min")),
     _temperature_max(getParam<Real>("temperature_max")),
@@ -95,6 +94,8 @@ MoabSkinner::MoabSkinner(const InputParameters & parameters)
     _n_write(0),
     _standalone(true)
 {
+  _build_graveyard = getParam<bool>("build_graveyard");
+
   // we can probably support this in the future, it's just not implemented yet
   if (!mesh().is_serial())
     mooseError("MoabSkinner does not yet support distributed meshes!");

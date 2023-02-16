@@ -573,6 +573,14 @@ OpenMCCellAverageProblem::initialSetup()
     if (!_skinner)
       paramError("skinner", "The 'skinner' user object must be of type MoabSkinner!");
 
+    if (!_skinner->hasGraveyard())
+    {
+      mooseWarning("Overriding graveyard setting on '", Moose::stringify(name), "' user object "
+        "because a graveyard must be present for OpenMC.\nYou can hide this warning by setting "
+        "'build_graveyard = true' for the '", Moose::stringify(name), "' user object.");
+      _skinner->setGraveyard(true);
+    }
+
     _skinner->setScaling(_scaling);
     _skinner->setVerbosity(_verbose);
     _skinner->makeDependentOnExternalAction();
