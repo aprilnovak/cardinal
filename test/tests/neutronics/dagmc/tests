@@ -1,0 +1,9 @@
+[Tests]
+  [wrong_uo]
+    type = RunException
+    input = wrong_uo.i
+    expect_err = "The 'skinner' user object must be of type MoabSkinner!"
+    requirement = "The system shall error if the skinner user object is not the correct type"
+    required_objects = 'OpenMCCellAverageProblem'
+  []
+[]
