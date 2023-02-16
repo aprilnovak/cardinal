@@ -574,7 +574,6 @@ OpenMCCellAverageProblem::initialSetup()
       paramError("skinner", "The 'skinner' user object must be of type MoabSkinner!");
 
     _skinner->setScaling(_scaling);
-    _skinner->setFixedMesh(_fixed_mesh);
     _skinner->setVerbosity(_verbose);
     _skinner->makeDependentOnExternalAction();
 
