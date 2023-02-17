@@ -267,6 +267,7 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
     _temperature_vars(nullptr),
     _temperature_blocks(nullptr),
     _symmetry(nullptr),
+    _skinner(nullptr),
     _n_openmc_cells(0)
 {
   if (_run_mode == openmc::RunMode::FIXED_SOURCE)
@@ -529,13 +530,20 @@ OpenMCCellAverageProblem::storeInitialMaterials()
 {
   for (const auto& mat : openmc::model::materials)
   {
-    std::string mat_name = mat->name_;
+    int32_t index;
+    auto err = openmc_get_material_index(mat->id_, &index);
+    catchOpenMCError(err, "get material index for material with ID " + mat->id_);
+    std::string mat_name = materialName(index);
 
-    int32_t id = mat->id_;
+    // TODO: do I need this error here? What does OpenMC do if there's the same name for multiple IDs?
     if (_mat_names_to_id.find(mat_name) != _mat_names_to_id.end())
-      mooseError("More than one material found with name ", mat_name, ". Please ensure materials have unique names.");
+      if (_mat_names_to_id[mat_name] != mat->id_)
+      {
+        std::cout << _mat_names_to_id[mat_name] << " " << mat->id_ << std::endl;
+        mooseError("More than one material found with name ", mat_name, ". Please ensure materials have unique names.");
+      }
 
-    _mat_names_to_id[mat_name] = id;
+    _mat_names_to_id[mat_name] = mat->id_;
   }
 }
 
@@ -562,7 +570,8 @@ OpenMCCellAverageProblem::initialSetup()
 
   checkMeshTemplateAndTranslations();
 
-  storeInitialMaterials();
+  // do I need this?
+  //storeInitialMaterials();
 
 #ifdef ENABLE_DAGMC
   if (isParamValid("skinner"))
@@ -1758,9 +1767,6 @@ OpenMCCellAverageProblem::mapElemsToCells()
 
     auto cell_index = _particle.coord(level).cell;
     auto cell_instance = cell_instance_at_level(_particle, level);
-
-    if (cell_instance < 0)
-      mooseError("Somehow got negative instance");
 
     cellInfo cell_info = {cell_index, cell_instance};
 
