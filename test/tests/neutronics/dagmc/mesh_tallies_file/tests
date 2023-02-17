@@ -1,0 +1,10 @@
+[Tests]
+  [null_skin]
+    type = Exodiff
+    input = one_bin.i
+    exodiff = one_bin_out.e
+    requirement = "The system shall give identical Monte Carlo solution (tallies and k) when skinning "
+                  "as compared to both (i) a CSG-equivalent version of the geometry and (ii) the same "
+                  "input file run with the skinner disabled."
+  []
+[]
