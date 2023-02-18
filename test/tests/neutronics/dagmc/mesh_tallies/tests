@@ -28,6 +28,15 @@
                   "directory."
     required_objects = 'DagMCPostprocessor'
   []
+  [disjoint_bins]
+    type = Exodiff
+    input = disjoint_bins.i
+    exodiff = disjoint_bins_out.e
+    requirement = "The system shall give identical Monte Carlo solution (file mesh tallies and k) when skinning "
+                  "as compared to a CSG-equivalent version of the geometry, which is in the csg_step_2 "
+                  "directory. For this case, a bin is split across disjoint elements."
+    required_objects = 'DagMCPostprocessor'
+  []
   [scale_mesh]
     type = RunApp
     input = scale.i
