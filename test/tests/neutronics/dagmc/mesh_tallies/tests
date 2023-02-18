@@ -3,7 +3,7 @@
     type = Exodiff
     input = one_bin.i
     exodiff = one_bin_out.e
-    requirement = "The system shall give identical Monte Carlo solution (tallies and k) when skinning "
+    requirement = "The system shall give identical Monte Carlo solution (file mesh tallies and k) when skinning "
                   "as compared to both (i) a CSG-equivalent version of the geometry and (ii) the same "
                   "input file run with the skinner disabled. The CSG file used for comparison is in "
                   "the csg_step_1 directory."
@@ -13,7 +13,17 @@
     type = Exodiff
     input = openmc.i
     exodiff = openmc_out.e
-    requirement = "The system shall give identical Monte Carlo solution (tallies and k) when skinning "
+    requirement = "The system shall give identical Monte Carlo solution (file mesh tallies and k) when skinning "
+                  "as compared to a CSG-equivalent version of the geometry, which is in the csg_step_2 "
+                  "directory."
+    required_objects = 'DagMCPostprocessor'
+  []
+  [skin_direct]
+    type = Exodiff
+    input = direct_tally.i
+    cli_args = 'Outputs/file_base=openmc_out'
+    exodiff = openmc_out.e
+    requirement = "The system shall give identical Monte Carlo solution (direct mesh tallies and k) when skinning "
                   "as compared to a CSG-equivalent version of the geometry, which is in the csg_step_2 "
                   "directory."
     required_objects = 'DagMCPostprocessor'
