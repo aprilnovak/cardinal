@@ -174,8 +174,6 @@ public:
   void getTally(const unsigned int & var_num, const std::vector<xt::xtensor<double, 1>> & tally,
     const unsigned int & score, const bool & print_table);
 
-  void storeInitialMaterials();
-
   /**
    * Get the mesh filter(s) for tallies automatically constructed by Cardinal.
    * Multiple mesh filters are only created if the mesh template feature is used.
@@ -1095,9 +1093,6 @@ protected:
   static constexpr Real EV_TO_JOULE = 1.6022e-19;
 
 private:
-  /// Convenience map of mat name string to its id; TODO: delete?
-  std::map<std::string,int32_t> _mat_names_to_id;
-
   /**
    * Update the number of particles according to the Dufek-Gudowski relaxation scheme
    */

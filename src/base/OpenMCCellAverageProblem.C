@@ -528,28 +528,6 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
 }
 
 void
-OpenMCCellAverageProblem::storeInitialMaterials()
-{
-  for (const auto& mat : openmc::model::materials)
-  {
-    int32_t index;
-    auto err = openmc_get_material_index(mat->id_, &index);
-    catchOpenMCError(err, "get material index for material with ID " + mat->id_);
-    std::string mat_name = materialName(index);
-
-    // TODO: do I need this error here? What does OpenMC do if there's the same name for multiple IDs?
-    if (_mat_names_to_id.find(mat_name) != _mat_names_to_id.end())
-      if (_mat_names_to_id[mat_name] != mat->id_)
-      {
-        std::cout << _mat_names_to_id[mat_name] << " " << mat->id_ << std::endl;
-        mooseError("More than one material found with name ", mat_name, ". Please ensure materials have unique names.");
-      }
-
-    _mat_names_to_id[mat_name] = mat->id_;
-  }
-}
-
-void
 OpenMCCellAverageProblem::initialSetup()
 {
   OpenMCProblemBase::initialSetup();
@@ -571,9 +549,6 @@ OpenMCCellAverageProblem::initialSetup()
   initializeTallies();
 
   checkMeshTemplateAndTranslations();
-
-  // do I need this?
-  //storeInitialMaterials();
 
 #ifdef ENABLE_DAGMC
   if (isParamValid("skinner"))
