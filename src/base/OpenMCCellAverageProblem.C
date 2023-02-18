@@ -400,6 +400,9 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
 
       if (n_dag > 1) // TODO: test
         mooseError("Only supports 1 DAGMC universe");
+
+      if (openmc::model::universes[_dagmc_universe_index]->uses_uwuw()) // TODO: test
+        mooseError("The 'skinner' does not currently support the UWUW workflow.");
     }
   }
 #else
