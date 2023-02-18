@@ -548,7 +548,7 @@ MoabSkinner::sortElemsByResults()
                      std::to_string(_density_bin_bounds[i + 1]),
                  n_density_hits[i]);
 
-    _console << "Mapping of Elements to Temperature Bins:" << std::endl;
+    _console << "\nMapping of Elements to Temperature Bins:" << std::endl;
     vtt.print(_console);
 
     if (_bin_by_density)
