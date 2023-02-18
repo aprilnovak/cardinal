@@ -18,4 +18,10 @@
                   "directory."
     required_objects = 'DagMCPostprocessor'
   []
+  [scale_mesh]
+    type = RunApp
+    input = scale.i
+    cli_args = '--mesh-only'
+    requirement = "The system shall convert from a centimeter-scale mesh to a meter-scale mesh."
+  []
 []
