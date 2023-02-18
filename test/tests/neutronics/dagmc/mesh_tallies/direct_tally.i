@@ -63,8 +63,8 @@ dT = 50.0
 [UserObjects]
   [moab]
     type = MoabSkinner
-    temperature_min = ${fparse T0 - dT - 0.01}
-    temperature_max = ${fparse T0 + 2 * dT + 0.01}
+    temperature_min = ${fparse T0 - dT}
+    temperature_max = ${fparse T0 + 2 * dT}
     n_temperature_bins = 4
     temperature = temp
     build_graveyard = true

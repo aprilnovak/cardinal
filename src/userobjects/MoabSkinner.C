@@ -566,7 +566,7 @@ MoabSkinner::getTemperatureBin(const Elem * const elem) const
   auto value = (*_serialized_solution)(dof);
 
   // TODO: add option to truncate instead
-  if (value < _temperature_min)
+  if ((_temperature_min - value) > 1e-6)
     mooseError("Variable '",
                _temperature_name,
                "' has value below minimum range of bins. "
@@ -576,7 +576,7 @@ MoabSkinner::getTemperatureBin(const Elem * const elem) const
                "\n  temperature_min: ",
                _temperature_min);
 
-  if (value > _temperature_max)
+  if ((value - _temperature_max) > 1e-6)
     mooseError("Variable '",
                _temperature_name,
                "' has value above maximum range of bins. "
@@ -599,7 +599,7 @@ MoabSkinner::getDensityBin(const Elem * const elem) const
   auto value = (*_serialized_solution)(dof);
 
   // TODO: add option to truncate instead
-  if (value < _density_min)
+  if ((_density_min - value) > 1e-6)
     mooseError("Variable '",
                _density_name,
                "' has value below minimum range of bins. "
@@ -609,7 +609,7 @@ MoabSkinner::getDensityBin(const Elem * const elem) const
                "\n  density_min: ",
                _density_min);
 
-  if (value > _density_max)
+  if ((value - _density_max) > 1e-6)
     mooseError("Variable '",
                _density_name,
                "' has value above maximum range of bins. "
