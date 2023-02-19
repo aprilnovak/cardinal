@@ -388,18 +388,12 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
         mooseError("The 'skinner' can only be used with OpenMC geometries that are entirely DAGMC based.\n"
           "Your model contains a combination of both CSG and DAG cells.");
 
-      int n_dag = 0;
+      // We know there will be a single DAGMC universe, because we already impose
+      // above that there cannot be CSG cells (and the only way to get >1 DAGMC
+      // universe is to fill it inside a CSG cell).
       for(const auto& universe: openmc::model::universes)
-      {
         if (universe->geom_type() == openmc::GeometryType::DAG)
-        {
-          n_dag++;
           _dagmc_universe_index = openmc::model::universe_map[universe->id_];
-        }
-      }
-
-      if (n_dag > 1) // TODO: test
-        mooseError("Only supports 1 DAGMC universe");
 
       if (openmc::model::universes[_dagmc_universe_index]->uses_uwuw()) // TODO: test
         mooseError("The 'skinner' does not currently support the UWUW workflow.");
