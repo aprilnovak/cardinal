@@ -7,4 +7,5 @@
     requirement = "The system shall error if attempting to skin an OpenMC geometry that is a combination "
                   "of DAG and CSG cells."
     required_objects = 'DagMCPostprocessor'
+  []
 []
