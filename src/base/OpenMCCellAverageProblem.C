@@ -395,7 +395,9 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
         if (universe->geom_type() == openmc::GeometryType::DAG)
           _dagmc_universe_index = openmc::model::universe_map[universe->id_];
 
-      if (openmc::model::universes[_dagmc_universe_index]->uses_uwuw()) // TODO: test
+      const openmc::Universe * u = openmc::model::universes[_dagmc_universe_index].get();
+      const openmc::DAGUniverse * dag = dynamic_cast<const openmc::DAGUniverse *>(u);
+      if (dag->uses_uwuw()) // TODO: test
         mooseError("The 'skinner' does not currently support the UWUW workflow.");
     }
   }
