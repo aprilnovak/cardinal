@@ -55,7 +55,7 @@ void scalarNeumannConditions(bcData * bc)
     if (bc->id == 1)
     {
       bc->flux = 0.0;
-      //bc->flux = bc->wrk[bc->idM];
+      //bc->flux = bc->usrwrk[bc->idM];
     }
   }
 }
