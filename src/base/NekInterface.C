@@ -176,7 +176,7 @@ hasScalarVariable(int scalarId)
 bool
 hasHeatSourceKernel()
 {
-  return udf.sEqnSource;
+  return static_cast<bool>(udf.sEqnSource);
 }
 
 bool

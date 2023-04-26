@@ -2737,6 +2737,8 @@ OpenMCCellAverageProblem::relaxAndNormalizeTally(const int & t, const unsigned i
   auto & current_raw = _current_raw_tally[score][t];
   auto & current_raw_std_dev = _current_raw_tally_std_dev[score][t];
 
+ std::cout << "Before: " << current[0] << std::endl;
+
   auto tally = _local_tally.at(t);
   auto mean_tally = tallySum(tally, score);
   current_raw = normalizeLocalTally(mean_tally, score);
@@ -2751,6 +2753,7 @@ OpenMCCellAverageProblem::relaxAndNormalizeTally(const int & t, const unsigned i
   if (_fixed_point_iteration == 0 || _relaxation == relaxation::none)
   {
     current = current_raw;
+  std::cout << "After: " << current[0] << std::endl;
     previous = current_raw;
     return;
   }

@@ -11,6 +11,7 @@
   oudf = "nekbox.oudf"
   udf = "nekbox.udf"
   verbose = true
+
 [MESH]
   solver = user
   file = "nekbox.re2"
@@ -25,7 +26,3 @@
 
 [TEMPERATURE]
   solver = none
-#  conductivity = 1.0
-#  rhoCp = 0.0
-#  residualTol = 1.0e-5
-#  boundaryTypeMap = I, f, I, I, I, I
