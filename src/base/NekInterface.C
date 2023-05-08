@@ -156,7 +156,8 @@ bool
 hasTemperatureVariable()
 {
   nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->Nscalar ? platform->options.compareArgs("SCALAR00 IS TEMPERATURE", "TRUE") : false;
+  //return nrs->Nscalar ? platform->options.compareArgs("SCALAR00 IS TEMPERATURE", "TRUE") : false;
+  return nrs->Nscalar;
 }
 
 bool
@@ -176,7 +177,7 @@ hasScalarVariable(int scalarId)
 bool
 hasHeatSourceKernel()
 {
-  return udf.sEqnSource;
+  return static_cast<bool>(udf.sEqnSource);
 }
 
 bool
