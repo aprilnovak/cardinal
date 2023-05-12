@@ -1,7 +1,3 @@
-void velocityDirichletConditions(bcData *bc)
-{
-}
-
 void scalarDirichletConditions(bcData *bc)
 {
   bc->s = bc->usrwrk[0];
