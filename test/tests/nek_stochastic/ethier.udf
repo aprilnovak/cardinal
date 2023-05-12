@@ -18,7 +18,6 @@ static dfloat P_D0;
 
 static dfloat P_OMEGA;
 static dfloat P_AMP;
-constexpr int nPartGlobal = 1000;
 
 occa::memory o_x0, o_y0, o_z0;
 
@@ -267,16 +266,10 @@ void UDF_Setup(nrs_t *nrs)
 {
   mesh_t *mesh = nrs->meshV;
   udf.sEqnSource = &userq;
-  if (platform->options.compareArgs("MOVING MESH", std::string("TRUE"))) {
-    o_x0 = platform->device.malloc(mesh->Nlocal, sizeof(dfloat), mesh->o_x);
-    o_y0 = platform->device.malloc(mesh->Nlocal, sizeof(dfloat), mesh->o_y);
-    o_z0 = platform->device.malloc(mesh->Nlocal, sizeof(dfloat), mesh->o_z);
-  }
 }
 
 void UDF_ExecuteStep(nrs_t *nrs, dfloat time, int tstep)
 {
-
   mesh_t *mesh = nrs->meshV;
   cds_t *cds = nrs->cds;
 
