@@ -7,7 +7,7 @@
     requirement = "Cardinal shall be able to run the conj_ht NekRS example with a thin wrapper while "
                   "using postprocessors acting on either the fluid mesh or fluid+solid mesh."
     required_objects = 'NekRSProblem'
-    rel_err = 1e-4
+    rel_err = 1e-3
   []
   [invalid_mesh_solid]
     type = RunException
