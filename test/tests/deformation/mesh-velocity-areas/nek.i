@@ -28,14 +28,12 @@
     type = NekSideIntegral
     field = unity
     boundary = '2'
-    use_displaced_mesh = true
     execute_on = INITIAL
   []
   [nekbdry_ar]
     type = NekSideIntegral
     field = unity
     boundary = '2'
-    use_displaced_mesh = true
   []
 []
 
