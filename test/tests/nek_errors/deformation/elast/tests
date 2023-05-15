@@ -7,7 +7,7 @@
 
     # nekRS can't use more processors than elements
     max_parallel = 64
-    expect_err = "NekRSStandaloneProblem currently does not transfer mesh displacements "
+    expect_err = "This class does not transfer mesh displacements "
     requirement = "The system shall warn if Cardinal is using NekRSStandaloneProblem with NekRS's moving mesh problems."
   []
   [missing_boundary]
