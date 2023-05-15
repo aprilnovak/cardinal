@@ -125,7 +125,7 @@ hasVariableDt()
 bool
 hasElasticitySolver()
 {
-  return platform->options.compareArgs("MESH SOLVER", "ELASTICITY");
+  return hasMovingMesh() && !hasUserMeshSolver();
 }
 
 bool
@@ -176,7 +176,7 @@ hasScalarVariable(int scalarId)
 bool
 hasHeatSourceKernel()
 {
-  return udf.sEqnSource;
+  return static_cast<bool>(udf.sEqnSource);
 }
 
 bool
@@ -1383,7 +1383,7 @@ isHeatFluxBoundary(const int boundary)
 bool
 isMovingMeshBoundary(const int boundary)
 {
-  return ( bcMap::text(boundary, "mesh") == "fixedValue" || bcMap::text(boundary, "mesh") == "codedFixedValue");
+  return bcMap::text(boundary, "mesh") == "codedFixedValue";
 }
 
 bool
