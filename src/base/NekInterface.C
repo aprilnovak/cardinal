@@ -125,13 +125,13 @@ hasVariableDt()
 bool
 hasElasticitySolver()
 {
-  return hasMovingMesh() && !hasUserMeshSolver();
+  return !platform->options.compareArgs("MESH SOLVER", "NONE") && hasMovingMesh();
 }
 
 bool
 hasUserMeshSolver()
 {
-  return platform->options.compareArgs("MESH SOLVER", "USER");
+  return platform->options.compareArgs("MESH SOLVER", "NONE") && hasMovingMesh();
 }
 
 bool
