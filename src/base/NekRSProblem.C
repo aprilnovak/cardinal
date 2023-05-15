@@ -229,7 +229,7 @@ NekRSProblem::initialSetup()
 
     if (!has_one_mv_bc)
       mooseError("For boundary-coupled moving mesh problems, you need at least one "
-                 "boundary in '" + _casename + ".par' to be of the type 'fixedValue'"
+                 "boundary in '" + _casename + ".par' to be of the type 'codedFixedValue'"
                  " in the [MESH] block.");
   }
 
