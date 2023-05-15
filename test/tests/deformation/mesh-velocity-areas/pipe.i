@@ -12,7 +12,6 @@
 [Variables]
   [temp]
     initial_condition = 0.0
-    order = FIRST
   []
 []
 
