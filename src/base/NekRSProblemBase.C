@@ -514,7 +514,7 @@ NekRSProblemBase::initialSetup()
 
   // add rows for the coupling data
   for (int i = 0; i < _minimum_scratch_size_for_coupling; ++i)
-    vt.addRow(_usrwrk_indices[i], "bc->wrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
+    vt.addRow(_usrwrk_indices[i], "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
       "nrs->usrwrk[" + std::to_string(i) + " * nrs->fieldOffset + n]");
 
   // add rows for the NekScalarValue(s)
@@ -522,13 +522,13 @@ NekRSProblemBase::initialSetup()
   {
     auto slot = uo->usrwrkSlot();
     auto count = uo->counter();
-    vt.addRow(uo->name(), "bc->wrk[" + std::to_string(slot) + " * bc->fieldOffset + " + std::to_string(count) + "]",
+    vt.addRow(uo->name(), "bc->usrwrk[" + std::to_string(slot) + " * bc->fieldOffset + " + std::to_string(count) + "]",
       "nrs->usrwrk[" + std::to_string(slot) + " * nrs->fieldOffset + " + std::to_string(count) + "]");
   }
 
   // add rows for the extra slices
   for (unsigned int i = _minimum_scratch_size_for_coupling + _n_uo_slots; i < _n_usrwrk_slots; ++i)
-    vt.addRow("unused", "bc->wrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
+    vt.addRow("unused", "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
       "nrs->usrwrk[" + std::to_string(i) + " * nrs->fieldOffset + n]");
 
   if (_n_usrwrk_slots < _minimum_scratch_size_for_coupling)
@@ -590,11 +590,22 @@ NekRSProblemBase::externalSolve()
   if (_t_step <= 1000)
     nekrs::verboseInfo(true);
 
-  // Run a nekRS time step. After the time step, this also calls UDF_ExecuteStep,
-  // evaluated at (step_end_time, _t_step) == (nek_step_start_time + nek_dt, t_step)
-  nekrs::runStep(_timestepper->nondimensionalDT(step_start_time),
+  // Tell NekRS what the time step size is
+  nekrs::initStep(_timestepper->nondimensionalDT(step_start_time),
                  _timestepper->nondimensionalDT(_dt),
                  _t_step);
+
+  // Run a nekRS time step. After the time step, this also calls UDF_ExecuteStep,
+  // evaluated at (step_end_time, _t_step) == (nek_step_start_time + nek_dt, t_step)
+  int corrector = 1;
+  bool converged = false;
+  do {
+    converged = nekrs::runStep(corrector++);
+  }
+  while (!converged);
+
+  // TODO: time =
+  nekrs::finishStep();
 
   // optional entry point to adjust the recently-computed NekRS solution
   adjustNekSolution();
@@ -607,6 +618,10 @@ NekRSProblemBase::externalSolve()
   // postprocessors that touch the `nrs` arrays that can be called in an arbitrary fashion
   // by the user.
   nek::ocopyToNek(_timestepper->nondimensionalDT(step_end_time), _t_step);
+
+  if (nekrs::printInfoFreq())
+    if (_t_step % nekrs::printInfoFreq() == 0)
+      nekrs::printInfo(_timestepper->nondimensionalDT(_time), _t_step, false, true);
 
   if (_is_output_step)
   {
@@ -650,7 +665,7 @@ NekRSProblemBase::externalSolve()
 
   if (nekrs::printInfoFreq())
     if (_t_step % nekrs::printInfoFreq() == 0)
-      nekrs::printInfo(_timestepper->nondimensionalDT(_time), _t_step);
+      nekrs::printInfo(_timestepper->nondimensionalDT(_time), _t_step, true, false);
 
   if (nekrs::runTimeStatFreq())
     if (_t_step % nekrs::runTimeStatFreq() == 0)

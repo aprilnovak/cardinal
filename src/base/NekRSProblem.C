@@ -370,7 +370,7 @@ NekRSProblem::sendBoundaryDeformationToNek()
 void
 NekRSProblem::sendBoundaryHeatFluxToNek()
 {
-  _console << "Sending heat flux to NekRS boundary " << Moose::stringify(*_boundary) << std::endl;
+  _console << "Sending heat flux to NekRS boundary " << Moose::stringify(*_boundary) << "..." << std::endl;
 
   if (!_volume)
   {
@@ -443,7 +443,8 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
     auto moose_flux = *_flux_integral;
     const double nek_flux = std::accumulate(nek_flux_sidesets.begin(), nek_flux_sidesets.end(), 0.0);
 
-    _console << "Normalizing total NekRS flux of " << Moose::stringify(nek_flux * nek_flux_print_mult)
+    _console << "[boundary " << Moose::stringify(*_boundary) << "]: Normalizing total NekRS flux of "
+             << Moose::stringify(nek_flux * nek_flux_print_mult)
              << " to the conserved MOOSE value of " << Moose::stringify(moose_flux) << std::endl;
 
     checkInitialFluxValues(nek_flux, moose_flux);

@@ -141,6 +141,7 @@ NekInitAction::act()
                casename,
                backend,
                device_id,
+               1, 0,
                0 /* debug mode */);
 
   _n_cases++;

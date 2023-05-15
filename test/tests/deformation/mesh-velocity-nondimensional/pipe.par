@@ -7,8 +7,9 @@ timeStepper = tombo2
 writeInterval = 50
 
 [MESH]
-boundaryTypeMap = zeroValue,fixedValue,zeroValue
-solver = elasticity
+boundaryTypeMap = zeroValue,codedFixedValue,zeroValue
+solver = pcg+block
+initialGuess = projection+nVector=1
 residualTol = 1e-6
 
 [PROBLEMTYPE]
@@ -22,7 +23,7 @@ initialGuess = previous
 [VELOCITY]
 density = 1.0
 viscosity = -100.0
-boundaryTypeMap = fixedValue,fixedValue,zeroGradient
+boundaryTypeMap = codedFixedValue,codedFixedValue,zeroGradient
 residualTol = 1e-6
 
 [TEMPERATURE]

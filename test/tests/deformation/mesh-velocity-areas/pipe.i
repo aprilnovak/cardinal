@@ -164,12 +164,10 @@
     type = AreaPostprocessor
     boundary = '2'
     execute_on = INITIAL
-    use_displaced_mesh = true
   []
   [bdry_ar]
     type = AreaPostprocessor
     boundary = '2'
-    use_displaced_mesh = true
   []
 []
 
