@@ -710,21 +710,36 @@ sideMaxValue(const std::vector<int> & boundary_id, const field::NekFieldEnum & f
 double
 volumeMaxValue(const field::NekFieldEnum & field, const nek_mesh::NekMeshEnum pp_mesh)
 {
-  mesh_t * mesh = getMesh(pp_mesh);
-
   double value = -std::numeric_limits<double>::max();
 
   double (*f)(int);
   f = solution::solutionPointer(field);
 
-  for (int i = 0; i < mesh->Nelements; ++i)
+  mesh_t * mesh;
+  int start_id;
+
+  switch (pp_mesh)
   {
-    for (int j = 0; j < mesh->Np; ++j)
+    case nek_mesh::fluid:
+    case nek_mesh::all:
     {
-      int id = i * mesh->Np + j;
-      value = std::max(value, f(id));
+      mesh = getMesh(pp_mesh);
+      start_id = 0;
+      break;
     }
+    case nek_mesh::solid:
+    {
+      mesh = entireMesh();
+      start_id = flowMesh()->Nelements;
+      break;
+    }
+    default:
+      mooseError("Unhandled NekMeshEnum in volumeMaxValue");
   }
+
+  for (int i = start_id; i < mesh->Nelements; ++i)
+    for (int j = 0; j < mesh->Np; ++j)
+      value = std::max(value, f(i * mesh->Np + j));
 
   // find extreme value across all processes
   double reduced_value;
@@ -743,21 +758,36 @@ volumeMaxValue(const field::NekFieldEnum & field, const nek_mesh::NekMeshEnum pp
 double
 volumeMinValue(const field::NekFieldEnum & field, const nek_mesh::NekMeshEnum pp_mesh)
 {
-  mesh_t * mesh = getMesh(pp_mesh);
-
   double value = std::numeric_limits<double>::max();
 
   double (*f)(int);
   f = solution::solutionPointer(field);
 
-  for (int i = 0; i < mesh->Nelements; ++i)
+  mesh_t * mesh;
+  int start_id;
+
+  switch (pp_mesh)
   {
-    for (int j = 0; j < mesh->Np; ++j)
+    case nek_mesh::fluid:
+    case nek_mesh::all:
     {
-      int id = i * mesh->Np + j;
-      value = std::min(value, f(id));
+      mesh = getMesh(pp_mesh);
+      start_id = 0;
+      break;
     }
+    case nek_mesh::solid:
+    {
+      mesh = entireMesh();
+      start_id = flowMesh()->Nelements;
+      break;
+    }
+    default:
+      mooseError("Unhandled NekMeshEnum in volumeMaxValue");
   }
+
+  for (int i = start_id; i < mesh->Nelements; ++i)
+    for (int j = 0; j < mesh->Np; ++j)
+      value = std::min(value, f(i * mesh->Np + j));
 
   // find extreme value across all processes
   double reduced_value;
@@ -891,7 +921,6 @@ double
 volume(const nek_mesh::NekMeshEnum pp_mesh)
 {
   mesh_t * mesh = getMesh(pp_mesh);
-
   double integral = 0.0;
 
   for (int k = 0; k < mesh->Nelements; ++k)
@@ -1402,14 +1431,6 @@ int
 polynomialOrder()
 {
   return entireMesh()->N;
-}
-
-int NflowElements()
-{
-  int n_local = flowMesh()->Nelements;
-  int n_global;
-  MPI_Allreduce(&n_local, &n_global, 1, MPI_INT, MPI_SUM, platform->comm.mpiComm);
-  return n_global;
 }
 
 int

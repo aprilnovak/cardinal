@@ -466,9 +466,6 @@ protected:
   /// Total number of volume elements in the nekRS problem
   int _nek_n_volume_elems;
 
-  /// Number of volume elements in the flow portion of the NekRS mesh
-  int _nek_n_flow_elems;
-
   /**
    * \brief "Phase" for each element (fluid = 0, solid = 1)
    *

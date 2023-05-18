@@ -1,0 +1,14 @@
+[GENERAL]
+  polynomialOrder = 1
+  numSteps = 1
+  dt = 2e-02
+  timeStepper = tombo2
+  writeInterval = 1
+
+[VELOCITY]
+  solver = none
+
+[PRESSURE]
+
+[TEMPERATURE]
+  solver = none
