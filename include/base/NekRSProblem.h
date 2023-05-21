@@ -127,7 +127,7 @@ protected:
   virtual void addTemperatureVariable() override { return; }
 
   /**
-   * Calculate mesh velocity for NekRS's elasticity solver using current and previous displacement values
+   * Calculate mesh velocity for NekRS's blending solver using current and previous displacement values
    * and write it to nrs->usrwrk, from where it can be accessed in nekRS's .oudf file.
    * @param[in] e Boundary element that the displacement values belong to
    * @param[in] field NekWriteEnum mesh_velocity_x/y/z field

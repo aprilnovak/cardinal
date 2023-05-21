@@ -139,8 +139,8 @@ bool hasMovingMesh();
 bool hasVariableDt();
 
 /**
- * Whether nekRS's input file has the elasticity mesh solver
- * @return whether nekRS's input file has [MESH] solver = elasticity
+ * Whether nekRS's input file has the blending mesh solver
+ * @return whether nekRS's input file has a non-user [MESH] solver
  */
 bool hasBlendingSolver();
 
@@ -695,13 +695,13 @@ struct usrwrkIndices
   /// volumetric heat source (for volumetric heating)
   int heat_source;
 
-  /// x-velocity of moving boundary (for mesh elasticity)
+  /// x-velocity of moving boundary (for mesh blending solver)
   int mesh_velocity_x;
 
-  /// y-velocity of moving boundary (for mesh elasticity)
+  /// y-velocity of moving boundary (for mesh blending solver)
   int mesh_velocity_y;
 
-  /// z-velocity of moving boundary (for mesh elasticity)
+  /// z-velocity of moving boundary (for mesh blending solver)
   int mesh_velocity_z;
 
   /// boundary velocity (for separate domain coupling)
