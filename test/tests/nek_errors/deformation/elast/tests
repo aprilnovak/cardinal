@@ -17,7 +17,7 @@
 
     # nekRS can't use more processors than elements
     max_parallel = 64
-    expect_err = "'elast.par' has a solver in the [MESH] block. This object uses\n"
+    expect_err = "'elast.par' has a solver in the \[MESH\] block. This object uses\n"
                "boundary displacement values from MOOSE to move the NekRS mesh."
     requirement = "The system shall error if Cardinal is using the NekRS blending solver without indicating the moving boundary of interest"
   []
