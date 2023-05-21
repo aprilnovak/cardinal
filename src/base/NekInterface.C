@@ -673,7 +673,7 @@ sideExtremeValue(const std::vector<int> & boundary_id, const field::NekFieldEnum
 {
   mesh_t * mesh = getMesh(pp_mesh);
 
-  double value = max ? std::numeric_limits<double>::min() : std::numeric_limits<double>::max();
+  double value = max ? -std::numeric_limits<double>::max() : std::numeric_limits<double>::max();
 
   double (*f)(int);
   f = solution::solutionPointer(field);
@@ -716,7 +716,7 @@ sideExtremeValue(const std::vector<int> & boundary_id, const field::NekFieldEnum
 double
 volumeExtremeValue(const field::NekFieldEnum & field, const nek_mesh::NekMeshEnum pp_mesh, const bool max)
 {
-  double value = max ? std::numeric_limits<double>::min() : std::numeric_limits<double>::max();
+  double value = max ? -std::numeric_limits<double>::max() : std::numeric_limits<double>::max();
 
   double (*f)(int);
   f = solution::solutionPointer(field);
