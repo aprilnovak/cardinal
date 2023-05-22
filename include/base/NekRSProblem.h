@@ -117,6 +117,16 @@ public:
 
 protected:
   /**
+   * Normalize the volumetric heat source sent to NekRS
+   * @param[in] moose_integral total integrated value from MOOSE to conserve
+   * @param[in] nek_integral total integrated value in nekRS to adjust
+   * @param[out] normalized_nek_integral final normalized value
+   * @return whether normalization was successful, i.e. normalized_nek_integral equals moose_integral
+   */
+  bool normalizeHeatSource(const double moose_integral, const double nek_integral,
+    double & normalized_nek_integral);
+
+  /**
    * Print a warning to the user if the initial fluxes (before normalization) differ
    * significantly, since this can indicate an error with model setup.
    * @param[in] nek_flux flux to be received by Nek
@@ -145,6 +155,12 @@ protected:
    * the default.
    */
   const bool & _conserve_flux_by_sideset;
+
+  /// Absolute tolerance for checking flux/heat source normalizations
+  const Real & _abs_tol;
+
+  /// Relative tolerance for checking flux/heat source normalizations
+  const Real & _rel_tol;
 
   /**
    * \brief Total surface-integrated flux coming from the coupled MOOSE app.

@@ -381,11 +381,19 @@ std::vector<double> fluxIntegral(const NekBoundaryCoupling & nek_boundary_coupli
                                  const std::vector<int> & boundary);
 
 /**
- * Integrate the interpolated heat source over the volume of the data transfer mesh
- * @param[in] nek_volume_coupling data structure holding volume coupling info
- * @return volume integrated heat source
+ * Volume integrate the scratch space
+ * @param[in] slot slot in scratch space to i ntegrat
+ * @param[in] pp_mesh NekRS mesh to integrate over
+ * @return volume integrated scratch space
  */
-double sourceIntegral(const NekVolumeCoupling & nek_volume_coupling);
+double usrwrkVolumeIntegral(const unsigned int & slot, const nek_mesh::NekMeshEnum pp_mesh);
+
+/**
+ * Scale a slot in the usrwrk by a fixed value (multiplication)
+ * @param[in] slot slot in usrwrk to modify
+ * @param[in] value value to multiply on scratch slot
+ */
+void scaleUsrwrk(const unsigned int & slot, const dfloat & value);
 
 /**
  * Normalize the flux sent to nekRS to conserve the total flux
@@ -416,19 +424,6 @@ bool normalizeFlux(const NekBoundaryCoupling & nek_boundary_coupling,
                    const double moose_integral,
                    double nek_integral,
                    double & normalized_nek_integral);
-
-/**
- * Normalize the heat source sent to nekRS to conserve the total heat source
- * @param[in] nek_volume_coupling data structure holding volume coupling info
- * @param[in] moose_integral total integrated heat source from MOOSE to conserve
- * @param[in] nek_integral total integrated heat source in nekRS to adjust
- * @param[out] normalized_nek_integral final normalized nek source integral
- * @return whether normalization was successful, i.e. normalized_nek_integral equals moose_integral
- */
-bool normalizeHeatSource(const NekVolumeCoupling & nek_volume_coupling,
-                         const double moose_integral,
-                         const double nek_integral,
-                         double & normalized_nek_integral);
 
 /**
  * Compute the area of a set of boundary IDs
@@ -598,8 +593,6 @@ double volumeExtremeValue(const field::NekFieldEnum & field,
 double sideExtremeValue(const std::vector<int> & boundary_id, const field::NekFieldEnum & field,
                         const nek_mesh::NekMeshEnum pp_mesh, const bool max);
 
-namespace mesh
-{
 /**
  * Number of faces per element; because NekRS only supports HEX20, this should be 6
  * @return number of faces per mesh element
@@ -690,8 +683,6 @@ validBoundaryIDs(const std::vector<int> & boundary_id, int & first_invalid_id, i
  */
 void storeBoundaryCoupling(const std::vector<int> & boundary_id, int & N);
 
-} // end namespace mesh
-
 /**
  * Integer indices in the usrwrk scratch space for writing solutions from MOOSE.
  * These will be set from Cardinal. Not all will be used simultaneously.
@@ -728,9 +719,6 @@ struct usrwrkIndices
   /// boundary scalar03 (for separate domain coupling)
   int boundary_scalar03;
 };
-
-namespace solution
-{
 
 /// Characteristic scales assumed in nekRS if using a non-dimensional solution
 struct characteristicScales
@@ -938,7 +926,11 @@ double referenceLength();
  */
 double referenceArea();
 
-} // end namespace solution
+/**
+ * Get the reference volume scale
+ * @return reference volume scale
+ */
+double referenceVolume();
 
 // useful concept from Stack Overflow for templating MPI calls
 template <typename T>

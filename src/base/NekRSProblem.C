@@ -74,7 +74,9 @@ NekRSProblem::validParams()
 NekRSProblem::NekRSProblem(const InputParameters & params)
   : NekRSProblemBase(params),
     _has_heat_source(getParam<bool>("has_heat_source")),
-    _conserve_flux_by_sideset(getParam<bool>("conserve_flux_by_sideset"))
+    _conserve_flux_by_sideset(getParam<bool>("conserve_flux_by_sideset")),
+    _abs_tol(getParam<Real>("normalization_abs_tol")),
+    _rel_tol(getParam<Real>("normalization_rel_tol"))
 {
   nekrs::setAbsoluteTol(getParam<Real>("normalization_abs_tol"));
   nekrs::setRelativeTol(getParam<Real>("normalization_rel_tol"));
@@ -206,9 +208,9 @@ NekRSProblem::initialSetup()
   if (boundary && has_temperature_solve)
   {
     for (const auto & b : *boundary)
-      if (!nekrs::mesh::isHeatFluxBoundary(b))
+      if (!nekrs::isHeatFluxBoundary(b))
       {
-        const std::string type = nekrs::mesh::temperatureBoundaryType(b);
+        const std::string type = nekrs::temperatureBoundaryType(b);
         mooseError("In order to send a boundary heat flux to nekRS, you must have a flux condition "
                    "for each 'boundary' set in 'NekRSMesh'!\nBoundary " +
                    std::to_string(b) + " is of type '" + type + "' instead of 'fixedGradient'.");
@@ -220,7 +222,7 @@ NekRSProblem::initialSetup()
     bool has_one_mv_bc = false;
     for (const auto & b : *boundary)
     {
-      if (nekrs::mesh::isMovingMeshBoundary(b))
+      if (nekrs::isMovingMeshBoundary(b))
       {
         has_one_mv_bc = true;
         break;
@@ -377,7 +379,7 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
       if (nekrs::commRank() != _nek_mesh->boundaryCoupling().processor_id(e))
         continue;
 
-      mapFaceDataToNekFace(e, _avg_flux_var, 1.0 / nekrs::solution::referenceFlux(), &_flux_face);
+      mapFaceDataToNekFace(e, _avg_flux_var, 1.0 / nekrs::referenceFlux(), &_flux_face);
       writeBoundarySolution(e, field::flux, _flux_face);
     }
   }
@@ -389,7 +391,7 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
       if (nekrs::commRank() != _nek_mesh->volumeCoupling().processor_id(e))
         continue;
 
-      mapFaceDataToNekVolume(e, _avg_flux_var, 1.0 / nekrs::solution::referenceFlux(), &_flux_elem);
+      mapFaceDataToNekVolume(e, _avg_flux_var, 1.0 / nekrs::referenceFlux(), &_flux_elem);
       writeVolumeSolution(e, field::flux, _flux_elem);
     }
   }
@@ -400,7 +402,7 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
   // flux integral, we need to scale the integral back up again to the dimensional form
   // for the sake of comparison.
   const Real scale_squared = _nek_mesh->scaling() * _nek_mesh->scaling();
-  const double nek_flux_print_mult = scale_squared * nekrs::solution::referenceFlux();
+  const double nek_flux_print_mult = scale_squared * nekrs::referenceFlux();
 
   // integrate the flux over each individual boundary
   std::vector<double> nek_flux_sidesets = nekrs::fluxIntegral(_nek_mesh->boundaryCoupling(), *_boundary);
@@ -474,7 +476,7 @@ void
 NekRSProblem::checkInitialFluxValues(const Real & nek_flux, const Real & moose_flux) const
 {
   const Real scale_squared = _nek_mesh->scaling() * _nek_mesh->scaling();
-  const double nek_flux_print_mult = scale_squared * nekrs::solution::referenceFlux();
+  const double nek_flux_print_mult = scale_squared * nekrs::referenceFlux();
 
   // If before normalization, there is a large difference between the nekRS imposed flux
   // and the MOOSE flux, this could mean that there is a poor match between the domains,
@@ -510,6 +512,29 @@ NekRSProblem::sendVolumeDeformationToNek()
   _displaced_problem->updateMesh();
 }
 
+bool
+NekRSProblem::normalizeHeatSource(const double moose, double nek, double & normalized_nek)
+{
+  auto dimension_multiplier = nekrs::referenceVolume() * nekrs::referenceSource();
+
+  // scale the nek source to dimensional form for the sake of normalizing against
+  // a dimensional MOOSE source
+  nek *= dimension_multiplier;
+
+  // avoid divide-by-zero
+  if (std::abs(nek) < _abs_tol)
+    return true;
+
+  nekrs::scaleUsrwrk(indices.heat_source, moose / nek);
+
+  // check that the normalization worked properly
+  normalized_nek = nekrs::usrwrkVolumeIntegral(indices.heat_source, nek_mesh::all) * dimension_multiplier;
+  bool low_rel_err = std::abs(normalized_nek - moose) / moose < _rel_tol;
+  bool low_abs_err = std::abs(normalized_nek - moose) < _abs_tol;
+
+  return low_rel_err && low_abs_err;
+}
+
 void
 NekRSProblem::sendVolumeHeatSourceToNek()
 {
@@ -521,7 +546,7 @@ NekRSProblem::sendVolumeHeatSourceToNek()
     if (nekrs::commRank() != _nek_mesh->volumeCoupling().processor_id(e))
       continue;
 
-    mapVolumeDataToNekVolume(e, _heat_source_var, 1.0 / nekrs::solution::referenceSource(), &_source_elem);
+    mapVolumeDataToNekVolume(e, _heat_source_var, 1.0 / nekrs::referenceSource(), &_source_elem);
     writeVolumeSolution(e, field::heat_source, _source_elem);
   }
 
@@ -529,12 +554,12 @@ NekRSProblem::sendVolumeHeatSourceToNek()
   // the heat source, we will need to normalize the total source on the nekRS side by the
   // total source computed by the coupled MOOSE app.
   const Real scale_cubed = _nek_mesh->scaling() * _nek_mesh->scaling() * _nek_mesh->scaling();
-  const double nek_source = nekrs::sourceIntegral(_nek_mesh->volumeCoupling());
+  const double nek_source = nekrs::usrwrkVolumeIntegral(indices.heat_source, nek_mesh::all);
   const double moose_source = *_source_integral;
 
   // For the sake of printing diagnostics to the screen regarding source normalization,
   // we first scale the nek source by any unit changes and then by the reference source
-  const double nek_source_print_mult = scale_cubed * nekrs::solution::referenceSource();
+  const double nek_source_print_mult = scale_cubed * nekrs::referenceSource();
   double normalized_nek_source = 0.0;
   bool successful_normalization;
 
@@ -545,8 +570,7 @@ NekRSProblem::sendVolumeHeatSourceToNek()
   // Any unit changes (for DIMENSIONAL nekRS runs) are automatically accounted for
   // here because moose_source is an integral on the MOOSE mesh, while nek_source is
   // an integral on the nek mesh
-  successful_normalization = nekrs::normalizeHeatSource(
-      _nek_mesh->volumeCoupling(), moose_source, nek_source, normalized_nek_source);
+  successful_normalization = normalizeHeatSource(moose_source, nek_source, normalized_nek_source);
 
   // If before normalization, there is a large difference between the nekRS imposed source
   // and the MOOSE source, this could mean that there is a poor match between the domains,

@@ -84,7 +84,7 @@ NekBinnedSideIntegral::binnedSideIntegral(const field::NekFieldEnum & integrand,
   resetPartialStorage();
 
   mesh_t * mesh = nekrs::entireMesh();
-  double (*f)(int) = nekrs::solution::solutionPointer(integrand);
+  double (*f)(int) = nekrs::solutionPointer(integrand);
   const auto & sgeo = nekrs::getSgeo();
 
   for (int i = 0; i < mesh->Nelements; ++i)

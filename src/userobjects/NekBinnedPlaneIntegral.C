@@ -89,7 +89,7 @@ NekBinnedPlaneIntegral::binnedPlaneIntegral(const field::NekFieldEnum & integran
   resetPartialStorage();
 
   mesh_t * mesh = nekrs::entireMesh();
-  double (*f)(int) = nekrs::solution::solutionPointer(integrand);
+  double (*f)(int) = nekrs::solutionPointer(integrand);
   const auto & vgeo = nekrs::getVgeo();
 
   for (int k = 0; k < mesh->Nelements; ++k)
