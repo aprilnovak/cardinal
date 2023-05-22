@@ -1,4 +1,5 @@
 #include "udf.hpp"
+#include "nekrs.hpp"
 
 void UDF_LoadKernels(occa::properties & kernelInfo)
 {
@@ -6,6 +7,8 @@ void UDF_LoadKernels(occa::properties & kernelInfo)
 
 void UDF_Setup(nrs_t * nrs)
 {
+    auto mesh =
+        createMesh(platform->comm.mpiComm, 2, 1 /* dummy */, nrs->cht, *(nrs->kernelInfo));
 }
 
 void UDF_ExecuteStep(nrs_t * nrs, dfloat time, int tstep)

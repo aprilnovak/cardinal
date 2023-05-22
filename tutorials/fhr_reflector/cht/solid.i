@@ -161,6 +161,8 @@ core_heat_flux = 5e3
   nl_abs_tol = 1e-5
   l_max_its = 100
   num_steps = 400
+  steady_state_detection = true
+  steady_state_tolerance = 1e-4
 []
 
 [Outputs]

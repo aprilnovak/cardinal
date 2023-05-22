@@ -2,13 +2,14 @@
 polynomialOrder = 2
 stopAt = numSteps
 numSteps = 50
-dt = 1e-1
+dt = 2e-4
 timeStepper = tombo2
 writeInterval = 50
 
 [MESH]
-boundaryTypeMap = zeroValue,fixedValue,zeroValue
-solver = elasticity
+boundaryTypeMap = zeroValue,codedFixedValue,zeroValue
+solver = pcg+block
+initialGuess = projection+nVector=1
 residualTol = 1e-6
 
 [PROBLEMTYPE]
@@ -21,8 +22,8 @@ initialGuess = previous
 
 [VELOCITY]
 density = 1.0
-viscosity = -100.0
-boundaryTypeMap = fixedValue,fixedValue,zeroGradient
+viscosity = -100000.0
+boundaryTypeMap = codedFixedValue,codedFixedValue,zeroGradient
 residualTol = 1e-6
 
 [TEMPERATURE]

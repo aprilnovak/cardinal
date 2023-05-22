@@ -19,6 +19,7 @@
     cli_args = "MultiApps/nek/cli_args='Mesh/volume=true;Problem/casename=pipe_vol'"
     csvdiff = 'pipe_out_nek0.csv pipe_out.csv'
     min_parallel = 4
+    rel_err = 1e-5
     requirement = "An arbitrary mesh displacement in the main app will displace the mesh"
                   "in the sub-app equivalently at each time-step while having the volume mesh"
                   "mirror enabled at the same time as the boundary mesh mirror. The displacement is"

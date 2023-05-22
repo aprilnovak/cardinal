@@ -21,7 +21,7 @@
   timeStepper = tombo2
   writeControl = steps
   writeInterval = 100
-  polynomialOrder = 4
+  polynomialOrder = 3
 
 [VELOCITY]
   viscosity = -100.0
