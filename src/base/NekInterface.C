@@ -448,29 +448,30 @@ scaleUsrwrk(const unsigned int & slot, const dfloat & value)
 }
 
 std::vector<double>
-fluxIntegral(const NekBoundaryCoupling & nek_boundary_coupling, const std::vector<int> & boundary)
+usrwrkSideIntegral(const unsigned int & slot, const std::vector<int> & boundary, const nek_mesh::NekMeshEnum pp_mesh)
 {
   nrs_t * nrs = (nrs_t *)nrsPtr();
-  mesh_t * mesh = temperatureMesh();
+  const auto & mesh = getMesh(pp_mesh);
 
   std::vector<double> integral(boundary.size(), 0.0);
 
-  for (int k = 0; k < nek_boundary_coupling.total_n_faces; ++k)
+  for (int i = 0; i < mesh->Nelements; ++i)
   {
-    if (nek_boundary_coupling.process[k] == commRank())
+    for (int j = 0; j < mesh->Nfaces; ++j)
     {
-      int i = nek_boundary_coupling.element[k];
-      int j = nek_boundary_coupling.face[k];
-
       int face_id = mesh->EToB[i * mesh->Nfaces + j];
-      auto it = std::find(boundary.begin(), boundary.end(), face_id);
-      auto b_index = it - boundary.begin();
 
-      int offset = i * mesh->Nfaces * mesh->Nfp + j * mesh->Nfp;
+      if (std::find(boundary.begin(), boundary.end(), face_id) != boundary.end())
+      {
+        auto it = std::find(boundary.begin(), boundary.end(), face_id);
+        auto b_index = it - boundary.begin();
 
-      for (int v = 0; v < mesh->Nfp; ++v)
-        integral[b_index] +=
-            nrs->usrwrk[indices.flux + mesh->vmapM[offset + v]] * sgeo[mesh->Nsgeo * (offset + v) + WSJID];
+        int offset = i * mesh->Nfaces * mesh->Nfp + j * mesh->Nfp;
+
+        for (int v = 0; v < mesh->Nfp; ++v)
+          integral[b_index] +=
+              nrs->usrwrk[slot + mesh->vmapM[offset + v]] * sgeo[mesh->Nsgeo * (offset + v) + WSJID];
+      }
     }
   }
 
@@ -524,7 +525,7 @@ normalizeFluxBySideset(const NekBoundaryCoupling & nek_boundary_coupling,
   }
 
   // check that the normalization worked properly - confirm against dimensional form
-  auto integrals = fluxIntegral(nek_boundary_coupling, boundary);
+  auto integrals = usrwrkSideIntegral(indices.flux, boundary, nek_mesh::all);
   normalized_nek_integral = std::accumulate(integrals.begin(), integrals.end(), 0.0) * scales.A_ref * scales.flux_ref;
   double total_moose_integral = std::accumulate(moose_integral.begin(), moose_integral.end(), 0.0);
   bool low_rel_err = std::abs(total_moose_integral) > abs_tol ?
@@ -572,7 +573,7 @@ normalizeFlux(const NekBoundaryCoupling & nek_boundary_coupling,
   }
 
   // check that the normalization worked properly - confirm against dimensional form
-  auto integrals = fluxIntegral(nek_boundary_coupling, boundary);
+  auto integrals = usrwrkSideIntegral(indices.flux, boundary, nek_mesh::all);
   normalized_nek_integral = std::accumulate(integrals.begin(), integrals.end(), 0.0) * scales.A_ref * scales.flux_ref;
   bool low_rel_err = std::abs(normalized_nek_integral - moose_integral) / moose_integral < rel_tol;
   bool low_abs_err = std::abs(normalized_nek_integral - moose_integral) < abs_tol;
@@ -983,39 +984,6 @@ area(const std::vector<int> & boundary_id, const nek_mesh::NekMeshEnum pp_mesh)
 
   dimensionalizeSideIntegral(field::unity, boundary_id, total_integral, pp_mesh);
 
-  return total_integral;
-}
-
-double
-usrWrkSideIntegral(const std::vector<int> & boundary_id, const unsigned int & slot,
-                   const nek_mesh::NekMeshEnum pp_mesh)
-{
-  mesh_t * mesh = getMesh(pp_mesh);
-  nrs_t * nrs = (nrs_t *) nrsPtr();
-
-  double integral = 0.0;
-
-  for (int i = 0; i < mesh->Nelements; ++i)
-  {
-    for (int j = 0; j < mesh->Nfaces; ++j)
-    {
-      int face_id = mesh->EToB[i * mesh->Nfaces + j];
-
-      if (std::find(boundary_id.begin(), boundary_id.end(), face_id) != boundary_id.end())
-      {
-        int offset = i * mesh->Nfaces * mesh->Nfp + j * mesh->Nfp;
-        for (int v = 0; v < mesh->Nfp; ++v)
-        {
-          integral += nrs->usrwrk[slot * scalarFieldOffset() + mesh->vmapM[offset + v]] *
-                      sgeo[mesh->Nsgeo * (offset + v) + WSJID];
-        }
-      }
-    }
-  }
-
-  // sum across all processes
-  double total_integral;
-  MPI_Allreduce(&integral, &total_integral, 1, MPI_DOUBLE, MPI_SUM, platform->comm.mpiComm);
   return total_integral;
 }
 

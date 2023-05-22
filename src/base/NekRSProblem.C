@@ -405,7 +405,7 @@ NekRSProblem::sendBoundaryHeatFluxToNek()
   const double nek_flux_print_mult = scale_squared * nekrs::referenceFlux();
 
   // integrate the flux over each individual boundary
-  std::vector<double> nek_flux_sidesets = nekrs::fluxIntegral(_nek_mesh->boundaryCoupling(), *_boundary);
+  std::vector<double> nek_flux_sidesets = nekrs::usrwrkSideIntegral(indices.flux, *_boundary, nek_mesh::all);
 
   bool successful_normalization;
   double normalized_nek_flux = 0.0;

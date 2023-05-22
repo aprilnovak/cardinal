@@ -372,13 +372,14 @@ Point gllPoint(int local_elem_id, int local_node_id);
 Point gllPointFace(int local_elem_id, int local_face_id, int local_node_id);
 
 /**
- * Integrate the interpolated flux over the boundaries of the data transfer mesh
- * @param[in] nek_boundary_coupling data structure holding boundary coupling info
- * @param[in] boundary boundaries over which to integrate the flux
- * @return boundary integrated flux
+ * Integrate the scratch space over boundaries
+ * @param[in] slot slot in scratch space
+ * @param[in] boundary boundaries over which to integrate the scratch space
+ * @param[in] pp_mesh portion of NekRS mesh to integrate over
+ * @return boundary integrated scratch space, with one value per sideset
  */
-std::vector<double> fluxIntegral(const NekBoundaryCoupling & nek_boundary_coupling,
-                                 const std::vector<int> & boundary);
+std::vector<double> usrwrkSideIntegral(const unsigned int & slot, const std::vector<int> & boundary,
+  const nek_mesh::NekMeshEnum pp_mesh);
 
 /**
  * Volume integrate the scratch space
@@ -432,16 +433,6 @@ bool normalizeFlux(const NekBoundaryCoupling & nek_boundary_coupling,
  * @return area integral
  */
 double area(const std::vector<int> & boundary_id, const nek_mesh::NekMeshEnum pp_mesh);
-
-/**
- * Compute the area integral of a given slot in the usrwrk array over a set of boundary IDs
- * @param[in] boundary_id nekRS boundary IDs for which to perform the integral
- * @param[in] slot slot in usrwrk array
- * @param[in] pp_mesh which NekRS mesh to operate on
- * @return area integral of a component of the usrwrk array
- */
-double usrWrkSideIntegral(const std::vector<int> & boundary_id, const unsigned int & slot,
-                          const nek_mesh::NekMeshEnum pp_mesh);
 
 /**
  * Compute the area integral of a given integrand over a set of boundary IDs
