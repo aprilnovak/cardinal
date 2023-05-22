@@ -43,6 +43,15 @@ namespace nekrs
 
 static int build_only;
 
+/// Allocate memory for the host mesh parameters
+void initializeHostMeshParameters();
+
+/// Update the mesh parameters on host
+void updateHostMeshParameters();
+
+dfloat * getSgeo();
+dfloat * getVgeo();
+
 /**
  * Set the absolute tolerance for checking energy conservation in data transfers to Nek
  * @param[in] tol tolerance

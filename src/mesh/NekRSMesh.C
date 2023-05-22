@@ -77,6 +77,9 @@ NekRSMesh::NekRSMesh(const InputParameters & parameters)
 
   _nek_internal_mesh = nekrs::entireMesh();
 
+  nekrs::initializeHostMeshParameters();
+  nekrs::updateHostMeshParameters();
+
   // nekRS will only ever support 3-D meshes. Just to be sure that this remains
   // the case for future Cardinal developers, throw an error if the mesh isn't 3-D
   // (since this would affect how we construct the mesh here).

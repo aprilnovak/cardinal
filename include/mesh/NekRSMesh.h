@@ -319,7 +319,7 @@ public:
    * @param[in] e the element to which src belongs
    * @param[in] field the displacement field we are updating
    */
-  void updateDisplacement (const int e, const double *src, const field::NekWriteEnum field);
+  void updateDisplacement(const int e, const double *src, const field::NekWriteEnum field);
 
 protected:
   /// Store the rank-local element and rank ownership for volume coupling
@@ -578,4 +578,10 @@ protected:
 
   /// Corner indices for GLL points of mesh mirror elements
   std::vector<std::vector<int>> _corner_indices;
+
+  /// NekRS surface mesh parameters
+  dfloat * _sgeo;
+
+  /// NekRS volume mesh parameters
+  dfloat * _vgeo;
 };
