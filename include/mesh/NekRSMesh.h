@@ -578,10 +578,4 @@ protected:
 
   /// Corner indices for GLL points of mesh mirror elements
   std::vector<std::vector<int>> _corner_indices;
-
-  /// NekRS surface mesh parameters
-  dfloat * _sgeo;
-
-  /// NekRS volume mesh parameters
-  dfloat * _vgeo;
 };
