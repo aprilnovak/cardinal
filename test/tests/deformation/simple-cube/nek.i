@@ -1,6 +1,6 @@
 [Mesh]
   type = NekRSMesh
-  #order = SECOND
+  order = SECOND
   volume = true
   parallel_type = replicated
   displacements = 'disp_x disp_y disp_z'
