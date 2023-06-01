@@ -1,5 +1,5 @@
-n_layers = 100    # number of axial extrusion layers; for the converged case,
-                  # we set this to 300 to get a finer mesh
+n_layers = 50    # number of axial extrusion layers; for the converged case,
+                 # we set this to 300 to get a finer mesh
 
 [GlobalParams]
   quad_center_elements = true
