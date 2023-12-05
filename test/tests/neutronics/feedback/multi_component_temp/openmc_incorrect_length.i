@@ -3,21 +3,6 @@
   file = ../../meshes/pincell.e
 []
 
-[ICs]
-  [solid_temp]
-    type = ConstantIC
-    variable = solid_temp
-    value = 800
-    blocks = '1 3'
-  []
-  [fluid_temp]
-    type = ConstantIC
-    variable = fluid_temp
-    value = 600
-    blocks = '2'
-  []
-[]
-
 [Problem]
   type = OpenMCCellAverageProblem
   power = 500.0
