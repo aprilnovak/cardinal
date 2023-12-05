@@ -52,4 +52,36 @@
     requirement = "The system shall allow lumping of subdomains together, equivalent to explicitly listing temperature correspondence to blocks"
     required_objects = 'OpenMCCellAverageProblem'
   []
+  [empty_materials]
+    type = RunException
+    input = openmc_incorrect_mats.i
+    cli_args = 'Problem/temperature_materials=""'
+    expect_err = "'temperature_materials' cannot be empty!"
+    requirement = "The system shall error if a vector is empty"
+    required_objects = 'OpenMCCellAverageProblem'
+  []
+  [wrong_length_materials]
+    type = RunException
+    input = openmc_incorrect_mats.i
+    expect_err = "'temperature_materials' and 'temperature_blocks' must be the same length!\n"
+                 "'temperature_materials' is of length 1 and 'temperature_blocks' is of length 2"
+    requirement = "The system shall error if the temperature materials are not the same size as the correponding blocks"
+    required_objects = 'OpenMCCellAverageProblem'
+  []
+  [mismatch_mats_vars_implicit]
+    type = RunException
+    input = openmc_incorrect_mats.i
+    cli_args = "Problem/temperature_materials='m1 m2; '"
+    expect_err = "Each entry in 'temperature_materials' must be of length 1 because you are using the default settings for 'temperature_variables' \(a vector where each entry is 'temp'\)"
+    requirement = "The system shall error if the temperature materials are not the same size as the corresponding variables for default variable names"
+    required_objects = 'OpenMCCellAverageProblem'
+  []
+  [mismatch_mats_vars]
+    type = RunException
+    input = openmc_incorrect_mats.i
+    cli_args = "Problem/temperature_materials='m1 m2; ' Problem/temperature_variables='fluid_temp; solid_temp'"
+    expect_err = "Each entry in 'temperature_materials' must be of the same length as the corresponding entry in 'temperature_variables'. Entry 0 in 'temperature_materials' is of length 2, but corresponding entry in 'temperature_variables' is of length 1"
+    requirement = "The system shall error if the temperature materials are not the same size as the corresponding variables"
+    required_objects = 'OpenMCCellAverageProblem'
+  []
 []

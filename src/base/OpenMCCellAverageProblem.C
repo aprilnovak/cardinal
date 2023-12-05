@@ -160,6 +160,9 @@ OpenMCCellAverageProblem::validParams()
       "temperature_variables",
       "Vector of variable names corresponding to the temperatures sent into OpenMC. Each entry maps to "
       "the corresponding entry in 'temperature_blocks.' If not specified, each entry defaults to 'temp'");
+  params.addParam<std::vector<std::vector<std::string>>>(
+      "temperature_materials",
+      "Vector of OpenMC material names for which to set from the temperatures sent into OpenMC. Each entry maps to the corresponding entry in 'temperature_blocks.' If not specified or if an entry is empty, ALL materials inside the cell will be set to the same (singly-valued) temperature variable.");
   params.addParam<std::vector<std::vector<SubdomainName>>>(
       "temperature_blocks",
       "Blocks corresponding to each of the 'temperature_variables'. If not specified, "
@@ -549,7 +552,10 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
         params, "check_identical_cell_fills", "'identical_cell_fills' is not specified");
 
   if (!isParamValid("temperature_blocks"))
+  {
     checkUnusedParam(params, "temperature_variables", "not setting 'temperature_blocks'");
+    checkUnusedParam(params, "temperature_materials", "not setting 'temperature_blocks'");
+  }
 
   std::vector<std::vector<SubdomainName>> temperature_blocks;
   if (isParamValid("temperature_blocks"))
@@ -590,6 +596,40 @@ OpenMCCellAverageProblem::OpenMCCellAverageProblem(const InputParameters & param
     for (std::size_t i = 0; i < temperature_vars.size(); ++i)
       for (std::size_t j = 0; j < temperature_blocks[i].size(); ++j)
         _temp_vars_to_blocks[temperature_vars[i][0]].push_back(temperature_blocks[i][j]);
+
+    std::vector<std::vector<std::string>> temperature_mats;
+    if (isParamValid("temperature_materials"))
+    {
+      temperature_mats = getParam<std::vector<std::vector<std::string>>>("temperature_materials");
+      checkEmptyVector(temperature_mats, "'temperature_materials'");
+
+      if (temperature_mats.size() != temperature_blocks.size())
+        mooseError("'temperature_materials' and 'temperature_blocks' must be the same length!\n"
+                   "'temperature_materials' is of length " +
+                   std::to_string(temperature_mats.size()) +
+                   " and 'temperature_blocks' is of length " +
+                   std::to_string(temperature_blocks.size()));
+
+      // Each entry must have same length as corresponding entry in temperature_variables
+      // (one variable per material)
+      for (std::size_t i = 0; i < temperature_mats.size(); ++i)
+      {
+        if (!temperature_mats[i].empty())
+        {
+          auto mat_size = temperature_mats[i].size();
+          auto var_size = temperature_vars[i].size();
+          bool implicit_names = !isParamValid("temperature_variables");
+          if (mat_size != var_size)
+          {
+            if (implicit_names)
+              mooseError("Each entry in 'temperature_materials' must be of length 1 because you are using the default settings for 'temperature_variables' (a vector where each entry is 'temp')");
+            else
+              mooseError("Each entry in 'temperature_materials' must be of the same length as the corresponding entry in 'temperature_variables'. "
+            "Entry " + std::to_string(i) + " in 'temperature_materials' is of length ", temperature_mats[i].size(), ", but corresponding entry in 'temperature_variables' is of length ", temperature_vars[i].size(),".");
+          }
+        }
+      }
+    }
   }
 
   if (!isParamValid("density_blocks"))
