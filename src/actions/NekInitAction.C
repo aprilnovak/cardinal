@@ -140,7 +140,6 @@ NekInitAction::act()
       build_only,
       size_target,
       ci_mode,
-      par,
       casename,
       backend,
       device_id,
