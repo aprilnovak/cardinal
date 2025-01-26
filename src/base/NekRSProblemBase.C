@@ -36,14 +36,11 @@ NekRSProblemBase::validParams()
       "this is <case> in <case>.par, <case>.udf, <case>.oudf, and <case>.re2.");
 
   params.addParam<unsigned int>("n_usrwrk_slots", 7,
-    "Number of slots to allocate in nrs->usrwrk to hold fields either related to coupling "
-    "(which will be populated by Cardinal), or other custom usages, such as a distance-to-wall calculation");
+    "Number of slots to allocate in nrs->o_usrwrk to hold fields either related to coupling (which will be populated by Cardinal), or other custom usages, such as a distance-to-wall calculation.");
   params.addParam<unsigned int>(
       "first_reserved_usrwrk_slot",
       0,
-      "Slice (zero-indexed) in nrs->usrwrk where Cardinal will begin reading/writing data; this "
-      "can be used to shift the usrwrk slots reserved by Cardinal, so that you can use earlier "
-      "slices for custom purposes");
+      "Slice (zero-indexed) in nrs->o_usrwrk where Cardinal will begin reading/writing data; this can be used to shift the usrwrk slots reserved by Cardinal, so that you can use earlier slices for custom purposes");
 
   params.addParam<bool>("nondimensional", false, "Whether NekRS is solved in non-dimensional form");
   params.addRangeCheckedParam<Real>(
@@ -523,14 +520,13 @@ NekRSProblemBase::initialSetup()
 
   getNekScalarValueUserObjects();
 
-  VariadicTable<std::string, std::string, std::string> vt({"Quantity", "How to Access (.oudf)", "How to Access (.udf)"});
+  VariadicTable<std::string, std::string> vt({"Quantity", "How to Access (from .oudf file)"});
 
   // add rows for the coupling data
   int end = _minimum_scratch_size_for_coupling + _first_reserved_usrwrk_slot;
   for (int i = 0; i < end; ++i)
     vt.addRow(_usrwrk_indices[i],
-              "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
-              "nrs->usrwrk[" + std::to_string(i) + " * nrs->fieldOffset + n]");
+              "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]");
 
   // add rows for the NekScalarValue(s)
   for (const auto & uo : _nek_uos)
@@ -539,16 +535,13 @@ NekRSProblemBase::initialSetup()
     auto count = uo->counter();
     vt.addRow(uo->name(),
               "bc->usrwrk[" + std::to_string(slot) + " * bc->fieldOffset + " +
-                  std::to_string(count) + "]",
-              "nrs->usrwrk[" + std::to_string(slot) + " * nrs->fieldOffset + " +
                   std::to_string(count) + "]");
   }
 
   // add rows for the extra slices
   for (unsigned int i = end + _n_uo_slots; i < _n_usrwrk_slots; ++i)
     vt.addRow("unused",
-              "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]",
-              "nrs->usrwrk[" + std::to_string(i) + " * nrs->fieldOffset + n]");
+              "bc->usrwrk[" + std::to_string(i) + " * bc->fieldOffset + bc->idM]");
 
   if (_n_usrwrk_slots < _minimum_scratch_size_for_coupling + _first_reserved_usrwrk_slot)
     mooseError("You did not allocate enough scratch space for Cardinal to complete its coupling!\n"
@@ -733,7 +726,7 @@ NekRSProblemBase::sendScalarValuesToNek()
     uo->setValue();
 
   if (udf.properties)
-    evaluateProperties(nrsPtr(), _timestepper->nondimensionalDT(_time));
+    evaluateProperties(nekrs::nrsPtr(), _timestepper->nondimensionalDT(_time));
 }
 
 void
@@ -1344,7 +1337,7 @@ NekRSProblemBase::copyScratchToDevice()
     auto n = nekrs::scalarFieldOffset();
     auto nbytes = n * sizeof(dfloat);
 
-    nrs->o_usrwrk.copyFrom(nrsPtr()->usrwrk + _first_reserved_usrwrk_slot * n,
+    nekrs::nrsPtr()->o_usrwrk.copyFrom(usrwrk + _first_reserved_usrwrk_slot * n,
                            (_minimum_scratch_size_for_coupling + _n_uo_slots) * nbytes,
                            _first_reserved_usrwrk_slot * nbytes);
   }

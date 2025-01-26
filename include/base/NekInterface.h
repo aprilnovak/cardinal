@@ -58,6 +58,7 @@ void updateHostMeshParameters();
 
 dfloat * getSgeo();
 dfloat * getVgeo();
+dfloat * usrwrk();
 
 /**
  * Check that the field specified can be accessed, e.g., if a user is requesting
@@ -268,12 +269,6 @@ bool hasScalarVariable(int scalarId);
  * @return whether nekRS has an OCCA kernel for apply a passive scalar source
  */
 bool hasHeatSourceKernel();
-
-/**
- * Whether the scratch space has already been allocated by the user
- * @return whether scratch space is already allocated
- */
-bool scratchAvailable();
 
 /**
  * Initialize scratch space for data to get sent into NekRS

@@ -247,46 +247,23 @@ commSize()
   return platform->comm.mpiCommSize;
 }
 
-bool
-scratchAvailable()
-{
-  // Because these scratch spaces are available for whatever the user sees fit, it is
-  // possible that the user wants to use these arrays for a _different_ purpose aside from
-  // transferring in MOOSE values. In nekrs::setup, we call the UDF_Setup0, UDF_Setup,
-  // and UDF_ExecuteStep routines. These scratch space arrays aren't initialized anywhere
-  // else in the core base, so we will make sure to throw an error from MOOSE if these
-  // arrays are already in use, because otherwise our MOOSE transfer might get overwritten
-  // by whatever other operation the user is trying to do.
-  if (nrsPtr()->usrwrk)
-    return false;
-
-  return true;
-}
-
 void
 initializeScratch(const unsigned int & n_slots)
 {
-  auto nrs = nrsPtr();
-  mesh_t * mesh = temperatureMesh();
-
-  // clear them just to be sure
+  // clear the device scratch just to be sure
   freeScratch();
 
   // In order to make indexing simpler in the device user functions (which is where the
   // boundary conditions are then actually applied), we define these scratch arrays
   // as volume arrays.
-  nrs->usrwrk = (double *)calloc(n_slots * scalarFieldOffset(), sizeof(double));
-  nrs->o_usrwrk = platform->device.malloc(n_slots * scalarFieldOffset() * sizeof(double),
-                                          nrs->usrwrk);
+  usrwrk = (double *)calloc(n_slots * scalarFieldOffset(), sizeof(double));
+  nrsPtr()->o_usrwrk = platform->device.malloc(n_slots * scalarFieldOffset() * sizeof(double), usrwrk);
 }
 
 void
 freeScratch()
 {
-  auto nrs = nrsPtr();
-
-  freePointer(nrs->usrwrk);
-  nrs->o_usrwrk.free();
+  nrsPtr()->o_usrwrk.free();
 }
 
 double
@@ -417,7 +394,7 @@ usrwrkVolumeIntegral(const unsigned int & slot, const nek_mesh::NekMeshEnum pp_m
     int offset = k * mesh->Np;
 
     for (int v = 0; v < mesh->Np; ++v)
-      integral += nrs->usrwrk[slot + offset + v] * vgeo[mesh->Nvgeo * offset + v + mesh->Np * JWID];
+      integral += usrwrk[slot + offset + v] * vgeo[mesh->Nvgeo * offset + v + mesh->Np * JWID];
   }
 
   // sum across all processes
@@ -438,7 +415,7 @@ scaleUsrwrk(const unsigned int & slot, const dfloat & value)
     int id = k * mesh->Np;
 
     for (int v = 0; v < mesh->Np; ++v)
-      nrs->usrwrk[slot + id + v] *= value;
+      usrwrk[slot + id + v] *= value;
   }
 }
 
@@ -466,7 +443,7 @@ usrwrkSideIntegral(const unsigned int & slot,
         int offset = i * mesh->Nfaces * mesh->Nfp + j * mesh->Nfp;
 
         for (int v = 0; v < mesh->Nfp; ++v)
-          integral[b_index] += nrs->usrwrk[slot + mesh->vmapM[offset + v]] *
+          integral[b_index] += usrwrk[slot + mesh->vmapM[offset + v]] *
                                sgeo[mesh->Nsgeo * (offset + v) + WSJID];
       }
     }
@@ -516,7 +493,7 @@ normalizeFluxBySideset(const NekBoundaryCoupling & nek_boundary_coupling,
       for (int v = 0; v < mesh->Nfp; ++v)
       {
         int id = mesh->vmapM[offset + v];
-        nrs->usrwrk[indices.flux + id] *= ratio;
+        usrwrk[indices.flux + id] *= ratio;
       }
     }
   }
@@ -564,7 +541,7 @@ normalizeFlux(const NekBoundaryCoupling & nek_boundary_coupling,
       for (int v = 0; v < mesh->Nfp; ++v)
       {
         int id = mesh->vmapM[offset + v];
-        nrs->usrwrk[indices.flux + id] *= ratio;
+        usrwrk[indices.flux + id] *= ratio;
       }
     }
   }
@@ -1451,13 +1428,13 @@ velocity_z_squared(const int id)
 void
 flux(const int id, const dfloat value)
 {
-  nrsPtr()->usrwrk[indices.flux + id] = value;
+  usrwrk[indices.flux + id] = value;
 }
 
 void
 heat_source(const int id, const dfloat value)
 {
-  nrsPtr()->usrwrk[indices.heat_source + id] = value;
+  usrwrk[indices.heat_source + id] = value;
 }
 
 void
@@ -1484,19 +1461,19 @@ z_displacement(const int id, const dfloat value)
 void
 mesh_velocity_x(const int id, const dfloat value)
 {
-  nrsPtr()->usrwrk[indices.mesh_velocity_x + id] = value;
+  usrwrk[indices.mesh_velocity_x + id] = value;
 }
 
 void
 mesh_velocity_y(const int id, const dfloat value)
 {
-  nrsPtr()->usrwrk[indices.mesh_velocity_y + id] = value;
+  usrwrk[indices.mesh_velocity_y + id] = value;
 }
 
 void
 mesh_velocity_z(const int id, const dfloat value)
 {
-  nrsPtr()->usrwrk[indices.mesh_velocity_z + id] = value;
+  usrwrk[indices.mesh_velocity_z + id] = value;
 }
 
 void

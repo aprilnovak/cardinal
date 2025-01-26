@@ -34,7 +34,7 @@ NekScalarValue::validParams()
       1.0,
       "Multiplier on 'value', typically used to convert from dimensional form into NekRS's "
       "non-dimensional form, if using a non-dimensional NekRS solve.");
-  params.addParam<unsigned int>("usrwrk_slot", "Slot in nrs->usrwrk into which to write the value; "
+  params.addParam<unsigned int>("usrwrk_slot", "Slot in nrs->o_usrwrk into which to write the value; "
     "if not specified, this defaults to the first unused slot");
   params.declareControllable("value");
   params.addClassDescription("Writes a scalar value from MOOSE into NekRS's scratch space");
@@ -81,13 +81,15 @@ NekScalarValue::NekScalarValue(const InputParameters & parameters)
 void
 NekScalarValue::setValue()
 {
-  nekrs::nrsPtr()->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter] = _value * _scaling;
+  auto u = usrwrk();
+  u[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter] = _value * _scaling;
 }
 
 Real
 NekScalarValue::getValue() const
 {
-  return nekrs::nrsPtr()->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter];
+  auto u = usrwrk();
+  return u[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter];
 }
 
 #endif

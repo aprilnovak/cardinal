@@ -41,7 +41,7 @@ NekInitAction::validParams()
   params.addParam<unsigned int>(
       "n_usrwrk_slots",
       7,
-      "Number of slots to allocate in nrs->usrwrk to hold fields either related to coupling "
+      "Number of slots to allocate in nrs->o_usrwrk to hold fields either related to coupling "
       "(which will be populated by Cardinal), or other custom usages, such as a distance-to-wall "
       "calculation");
 
@@ -180,21 +180,11 @@ NekInitAction::act()
                                      1.0 /* rho_ref */,
                                      1.0 /* Cp_ref */);
 
+  // Initialize scratch space in NekRS to write data incoming data from MOOSE
   bool always_allocate = _type == "NekRSProblem" || _type == "NekRSSeparateDomainProblem";
   bool special_allocate = _type == "NekRSStandaloneProblem" && _specified_scratch;
   if (always_allocate || special_allocate)
-  {
-    if (!nekrs::scratchAvailable())
-      mooseError(
-          "The nrs_t.usrwrk and nrs_t.o_usrwrk arrays are automatically allocated by Cardinal,\n"
-          "but you have tried allocating them separately inside your case files. Please remove "
-          "the\n"
-          "manual allocation of the space in your user files, and be sure to only write such that\n"
-          "the space reserved for coupling data is untouched.");
-
-    // Initialize scratch space in NekRS to write data incoming data from MOOSE
     nekrs::initializeScratch(_n_usrwrk_slots);
-  }
 }
 
 inipp::Ini *
