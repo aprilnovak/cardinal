@@ -693,7 +693,7 @@ NekRSMesh::faceVertices()
   double * y = (double *) malloc(n_vertices_in_mirror * sizeof(double));
   double * z = (double *) malloc(n_vertices_in_mirror * sizeof(double));
 
-  nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
+  auto nrs = nekrs::nrsPtr();
   int rank = nekrs::commRank();
 
   mesh_t * mesh;
@@ -781,7 +781,7 @@ NekRSMesh::volumeVertices()
   double * z = (double *) malloc(n_vertices_in_mirror * sizeof(double));
   double * p = (double *) malloc(_n_build_per_volume_elem * _n_volume_elems * sizeof(double));
 
-  nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
+  auto nrs = nekrs::nrsPtr();
   int rank = nekrs::commRank();
 
   mesh_t * mesh;

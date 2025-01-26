@@ -45,6 +45,9 @@
 namespace nekrs
 {
 
+/// Obtain pointer to solver class in NekRS
+nrs_t * nrsPtr();
+
 static int build_only;
 
 /// Allocate memory for the host mesh parameters

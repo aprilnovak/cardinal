@@ -55,7 +55,7 @@ NekViscousSurfaceForce::getValue() const
 {
   if (_component == "total")
   {
-    nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
+    auto nrs = nekrs::nrsPtr();
     auto o_Sij = platform->o_memPool.reserve<dfloat>(2 * nrs->NVfields * nrs->fieldOffset);
     postProcessing::strainRate(nrs, true, nrs->o_U, o_Sij);
 

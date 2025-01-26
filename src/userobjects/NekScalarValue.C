@@ -81,15 +81,13 @@ NekScalarValue::NekScalarValue(const InputParameters & parameters)
 void
 NekScalarValue::setValue()
 {
-  nrs_t * nrs = (nrs_t *) nekrs::nrsPtr();
-  nrs->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter] = _value * _scaling;
+  nekrs::nrsPtr()->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter] = _value * _scaling;
 }
 
 Real
 NekScalarValue::getValue() const
 {
-  nrs_t * nrs = (nrs_t *) nekrs::nrsPtr();
-  return nrs->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter];
+  return nekrs::nrsPtr()->usrwrk[_usrwrk_slot * nekrs::scalarFieldOffset() + _counter];
 }
 
 #endif

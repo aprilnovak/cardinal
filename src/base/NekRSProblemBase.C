@@ -733,10 +733,7 @@ NekRSProblemBase::sendScalarValuesToNek()
     uo->setValue();
 
   if (udf.properties)
-  {
-    nrs_t * nrs = (nrs_t *) nekrs::nrsPtr();
-    evaluateProperties(nrs, _timestepper->nondimensionalDT(_time));
-  }
+    evaluateProperties(nrsPtr(), _timestepper->nondimensionalDT(_time));
 }
 
 void
@@ -1347,8 +1344,7 @@ NekRSProblemBase::copyScratchToDevice()
     auto n = nekrs::scalarFieldOffset();
     auto nbytes = n * sizeof(dfloat);
 
-    nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
-    nrs->o_usrwrk.copyFrom(nrs->usrwrk + _first_reserved_usrwrk_slot * n,
+    nrs->o_usrwrk.copyFrom(nrsPtr()->usrwrk + _first_reserved_usrwrk_slot * n,
                            (_minimum_scratch_size_for_coupling + _n_uo_slots) * nbytes,
                            _first_reserved_usrwrk_slot * nbytes);
   }

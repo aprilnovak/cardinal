@@ -433,7 +433,7 @@ NekRSSeparateDomainProblem::velocity(const nek_mesh::NekMeshEnum pp_mesh,
   // We can only write into the nekRS scratch space if that face is "owned" by the current process
   if (nekrs::commRank() == bc.processor_id(elem_id))
   {
-    nrs_t * nrs = (nrs_t *)nekrs::nrsPtr();
+    auto nrs = nekrs::nrsPtr();
     mesh_t * mesh = nekrs::getMesh(pp_mesh);
 
     int end_1d = mesh->Nq;

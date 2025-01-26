@@ -34,6 +34,12 @@ static double setup_time;
 static double abs_tol;
 static double rel_tol;
 
+nrs_t *
+nrsPtr()
+{
+  return dynamic_cast<nrs_t*>(platform->solver);
+}
+
 void
 setAbsoluteTol(double tol)
 {
@@ -69,9 +75,8 @@ write_usrwrk_field_file(const int & slot, const std::string & prefix, const dflo
 {
   int num_bytes = scalarFieldOffset() * sizeof(dfloat);
 
-  nrs_t * nrs = (nrs_t *)nrsPtr();
   occa::memory o_write = platform->device.malloc(num_bytes);
-  o_write.copyFrom(nrs->o_usrwrk, num_bytes /* length we are copying */,
+  o_write.copyFrom(nrsPtr()->o_usrwrk, num_bytes /* length we are copying */,
     0 /* where to place data */, num_bytes * slot /* where to source data */);
 
   occa::memory o_null;
@@ -81,7 +86,7 @@ write_usrwrk_field_file(const int & slot, const std::string & prefix, const dflo
 void
 write_field_file(const std::string & prefix, const dfloat time, const int & step)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   int Nscalar = 0;
   occa::memory o_s;
@@ -158,22 +163,19 @@ endControlNumSteps()
 bool
 hasTemperatureVariable()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->Nscalar ? platform->options.compareArgs("SCALAR00 IS TEMPERATURE", "TRUE") : false;
+  return nrsPtr()->Nscalar ? platform->options.compareArgs("SCALAR00 IS TEMPERATURE", "TRUE") : false;
 }
 
 bool
 hasTemperatureSolve()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return hasTemperatureVariable() ? nrs->cds->compute[0] : false;
+  return hasTemperatureVariable() ? nrsPtr()->cds->compute[0] : false;
 }
 
 bool
 hasScalarVariable(int scalarId)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return (scalarId < nrs->Nscalar);
+  return (scalarId < nrsPtr()->Nscalar);
 }
 
 bool
@@ -185,22 +187,19 @@ hasHeatSourceKernel()
 bool
 isInitialized()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs;
+  return nrsPtr();
 }
 
 int
 scalarFieldOffset()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->fieldOffset[0];
+  return nrsPtr()->cds->fieldOffset[0];
 }
 
 int
 velocityFieldOffset()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->fieldOffset;
+  return nrsPtr()->fieldOffset;
 }
 
 mesh_t *
@@ -215,15 +214,13 @@ entireMesh()
 mesh_t *
 flowMesh()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->meshV;
+  return nrsPtr()->meshV;
 }
 
 mesh_t *
 temperatureMesh()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->mesh[0];
+  return nrsPtr()->cds->mesh[0];
 }
 
 mesh_t *
@@ -253,8 +250,6 @@ commSize()
 bool
 scratchAvailable()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-
   // Because these scratch spaces are available for whatever the user sees fit, it is
   // possible that the user wants to use these arrays for a _different_ purpose aside from
   // transferring in MOOSE values. In nekrs::setup, we call the UDF_Setup0, UDF_Setup,
@@ -262,7 +257,7 @@ scratchAvailable()
   // else in the core base, so we will make sure to throw an error from MOOSE if these
   // arrays are already in use, because otherwise our MOOSE transfer might get overwritten
   // by whatever other operation the user is trying to do.
-  if (nrs->usrwrk)
+  if (nrsPtr()->usrwrk)
     return false;
 
   return true;
@@ -271,7 +266,7 @@ scratchAvailable()
 void
 initializeScratch(const unsigned int & n_slots)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   mesh_t * mesh = temperatureMesh();
 
   // clear them just to be sure
@@ -288,7 +283,7 @@ initializeScratch(const unsigned int & n_slots)
 void
 freeScratch()
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   freePointer(nrs->usrwrk);
   nrs->o_usrwrk.free();
@@ -412,7 +407,7 @@ displacementAndCounts(const std::vector<int> & base_counts,
 double
 usrwrkVolumeIntegral(const unsigned int & slot, const nek_mesh::NekMeshEnum pp_mesh)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   const auto & mesh = getMesh(pp_mesh);
 
   double integral = 0.0;
@@ -435,7 +430,7 @@ usrwrkVolumeIntegral(const unsigned int & slot, const nek_mesh::NekMeshEnum pp_m
 void
 scaleUsrwrk(const unsigned int & slot, const dfloat & value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   mesh_t * mesh = getMesh(nek_mesh::all);
 
   for (int k = 0; k < mesh->Nelements; ++k)
@@ -452,7 +447,7 @@ usrwrkSideIntegral(const unsigned int & slot,
                    const std::vector<int> & boundary,
                    const nek_mesh::NekMeshEnum pp_mesh)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   const auto & mesh = getMesh(pp_mesh);
 
   std::vector<double> integral(boundary.size(), 0.0);
@@ -497,7 +492,7 @@ normalizeFluxBySideset(const NekBoundaryCoupling & nek_boundary_coupling,
   for (auto & i : nek_integral)
     i *= scales.A_ref * scales.flux_ref;
 
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   mesh_t * mesh = temperatureMesh();
 
   for (int k = 0; k < nek_boundary_coupling.total_n_faces; ++k)
@@ -553,7 +548,7 @@ normalizeFlux(const NekBoundaryCoupling & nek_boundary_coupling,
   if (std::abs(nek_integral) < abs_tol)
     return true;
 
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   mesh_t * mesh = temperatureMesh();
 
   const double ratio = moose_integral / nek_integral;
@@ -597,7 +592,7 @@ limitTemperature(const double * min_T, const double * max_T)
   minimum = (minimum - scales.T_ref) / scales.dT_ref;
   maximum = (maximum - scales.T_ref) / scales.dT_ref;
 
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   mesh_t * mesh = temperatureMesh();
 
   for (int i = 0; i < mesh->Nelements; ++i)
@@ -1017,7 +1012,7 @@ double
 massFlowrate(const std::vector<int> & boundary_id, const nek_mesh::NekMeshEnum pp_mesh)
 {
   mesh_t * mesh = getMesh(pp_mesh);
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   // TODO: This function only works correctly if the density is constant, because
   // otherwise we need to copy the density from device to host
@@ -1067,7 +1062,7 @@ sideMassFluxWeightedIntegral(const std::vector<int> & boundary_id,
                              const nek_mesh::NekMeshEnum pp_mesh)
 {
   mesh_t * mesh = getMesh(pp_mesh);
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   // TODO: This function only works correctly if the density is constant, because
   // otherwise we need to copy the density from device to host
@@ -1123,7 +1118,7 @@ double
 pressureSurfaceForce(const std::vector<int> & boundary_id, const Point & direction, const nek_mesh::NekMeshEnum pp_mesh)
 {
   mesh_t * mesh = getMesh(pp_mesh);
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   double integral = 0.0;
 
@@ -1164,7 +1159,7 @@ double
 heatFluxIntegral(const std::vector<int> & boundary_id, const nek_mesh::NekMeshEnum pp_mesh)
 {
   mesh_t * mesh = getMesh(pp_mesh);
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
 
   // TODO: This function only works correctly if the conductivity is constant, because
   // otherwise we need to copy the conductivity from device to host
@@ -1373,36 +1368,31 @@ validBoundaryIDs(const std::vector<int> & boundary_id, int & first_invalid_id, i
 double
 scalar01(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->S[id + 1 * scalarFieldOffset()];
+  return nrsPtr()->cds->S[id + 1 * scalarFieldOffset()];
 }
 
 double
 scalar02(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->S[id + 2 * scalarFieldOffset()];
+  return nrsPtr()->cds->S[id + 2 * scalarFieldOffset()];
 }
 
 double
 scalar03(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->S[id + 3 * scalarFieldOffset()];
+  return nrsPtr()->cds->S[id + 3 * scalarFieldOffset()];
 }
 
 double
 temperature(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->cds->S[id];
+  return nrsPtr()->cds->S[id];
 }
 
 double
 pressure(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->P[id];
+  return nrsPtr()->P[id];
 }
 
 double
@@ -1414,28 +1404,25 @@ unity(const int /* id */)
 double
 velocity_x(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->U[id + 0 * nrs->fieldOffset];
+  return nrsPtr()->U[id + 0 * velocityFieldOffset()];
 }
 
 double
 velocity_y(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->U[id + 1 * nrs->fieldOffset];
+  return nrsPtr()->U[id + 1 * velocityFieldOffset()];
 }
 
 double
 velocity_z(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  return nrs->U[id + 2 * nrs->fieldOffset];
+  return nrsPtr()->U[id + 2 * velocityFieldOffset()];
 }
 
 double
 velocity(const int id)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
+  auto nrs = nrsPtr();
   int offset = nrs->fieldOffset;
 
   return std::sqrt(nrs->U[id + 0 * offset] * nrs->U[id + 0 * offset] +
@@ -1464,15 +1451,13 @@ velocity_z_squared(const int id)
 void
 flux(const int id, const dfloat value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  nrs->usrwrk[indices.flux + id] = value;
+  nrsPtr()->usrwrk[indices.flux + id] = value;
 }
 
 void
 heat_source(const int id, const dfloat value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  nrs->usrwrk[indices.heat_source + id] = value;
+  nrsPtr()->usrwrk[indices.heat_source + id] = value;
 }
 
 void
@@ -1499,22 +1484,19 @@ z_displacement(const int id, const dfloat value)
 void
 mesh_velocity_x(const int id, const dfloat value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  nrs->usrwrk[indices.mesh_velocity_x + id] = value;
+  nrsPtr()->usrwrk[indices.mesh_velocity_x + id] = value;
 }
 
 void
 mesh_velocity_y(const int id, const dfloat value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  nrs->usrwrk[indices.mesh_velocity_y + id] = value;
+  nrsPtr()->usrwrk[indices.mesh_velocity_y + id] = value;
 }
 
 void
 mesh_velocity_z(const int id, const dfloat value)
 {
-  nrs_t * nrs = (nrs_t *)nrsPtr();
-  nrs->usrwrk[indices.mesh_velocity_z + id] = value;
+  nrsPtr()->usrwrk[indices.mesh_velocity_z + id] = value;
 }
 
 void
