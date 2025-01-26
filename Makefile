@@ -129,32 +129,48 @@ NEKRS_BUILDDIR := $(CARDINAL_DIR)/build/nekrs
 NEKRS_INSTALL_DIR := $(CONTRIB_INSTALL_DIR)
 NEKRS_INCLUDES := \
 	-I$(NEKRS_DIR)/src \
-	-I$(NEKRS_DIR)/src/bdry \
 	-I$(NEKRS_DIR)/src/bench/advsub \
 	-I$(NEKRS_DIR)/src/bench/axHelm \
 	-I$(NEKRS_DIR)/src/bench/core \
 	-I$(NEKRS_DIR)/src/bench/fdm \
-	-I$(NEKRS_DIR)/src/cds \
 	-I$(NEKRS_DIR)/src/core \
-	-I$(NEKRS_DIR)/src/findpts \
-	-I$(NEKRS_DIR)/src/io \
+	-I$(NEKRS_DIR)/src/core/bdry \
+	-I$(NEKRS_DIR)/src/core/io \
+	-I$(NEKRS_DIR)/src/core/kernels \
+	-I$(NEKRS_DIR)/src/core/linAlg \
+	-I$(NEKRS_DIR)/src/core/linAlg/kernels \
+	-I$(NEKRS_DIR)/src/core/ogs \
+	-I$(NEKRS_DIR)/src/core/ogs/kernels \
+	-I$(NEKRS_DIR)/src/elliptic \
+	-I$(NEKRS_DIR)/src/elliptic/amgSolver \
+	-I$(NEKRS_DIR)/src/elliptic/amgSolver/amgx \
+	-I$(NEKRS_DIR)/src/elliptic/amgSolver/amgx/hypre \
+	-I$(NEKRS_DIR)/src/elliptic/kernels \
+	-I$(NEKRS_DIR)/src/elliptic/linearSolver \
+	-I$(NEKRS_DIR)/src/elliptic/linearSolver/kernels \
+	-I$(NEKRS_DIR)/src/elliptic/MG \
 	-I$(NEKRS_DIR)/src/lib \
-	-I$(NEKRS_DIR)/src/linAlg \
 	-I$(NEKRS_DIR)/src/mesh \
-	-I$(NEKRS_DIR)/src/navierStokes \
+	-I$(NEKRS_DIR)/src/mesh/kernels \
 	-I$(NEKRS_DIR)/src/nekInterface \
-	-I$(NEKRS_DIR)/src/neknek \
+	-I$(NEKRS_DIR)/src/nrs \
+	-I$(NEKRS_DIR)/src/nrs/bdry \
+	-I$(NEKRS_DIR)/src/nrs/cds \
+	-I$(NEKRS_DIR)/src/nrs/cds/cvode \
+	-I$(NEKRS_DIR)/src/nrs/cds/cvode/kernels \
+	-I$(NEKRS_DIR)/src/nrs/cds/kernels \
+	-I$(NEKRS_DIR)/src/nrs/kernels \
+	-I$(NEKRS_DIR)/src/nrs/neknek \
+	-I$(NEKRS_DIR)/src/nrs/neknek/kernels \
+	-I$(NEKRS_DIR)/src/nrs/plugins \
+	-I$(NEKRS_DIR)/src/nrs/plugins/kernels \
+	-I$(NEKRS_DIR)/src/nrs/postProcessing \
+	-I$(NEKRS_DIR)/src/nrs/postProcessing/kernels \
 	-I$(NEKRS_DIR)/src/plugins \
+	-I$(NEKRS_DIR)/src/plugins/kernels \
 	-I$(NEKRS_DIR)/src/pointInterpolation \
 	-I$(NEKRS_DIR)/src/pointInterpolation/findpts \
-	-I$(NEKRS_DIR)/src/postProcessing \
-	-I$(NEKRS_DIR)/src/regularization \
-	-I$(NEKRS_DIR)/src/setup \
-	-I$(NEKRS_DIR)/src/solvers/cvode \
-	-I$(NEKRS_DIR)/src/solvers/elliptic \
-	-I$(NEKRS_DIR)/src/solvers/elliptic/amgSolver \
-	-I$(NEKRS_DIR)/src/solvers/elliptic/linearSolver \
-	-I$(NEKRS_DIR)/src/solvers/elliptic/MG \
+	-I$(NEKRS_DIR)/src/pointInterpolation/findpts/kernels \
 	-I$(NEKRS_DIR)/src/udf \
 	-I$(NEKRS_DIR)/src/utils \
 	-I$(NEKRS_INSTALL_DIR)/gatherScatter \
