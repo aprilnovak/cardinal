@@ -2,8 +2,7 @@
 #
 # To control where various third-party dependencies are.
 # NOTE: If you change any of these partway through a build, you will need to
-# clear out the build/ and install/ directories to be sure the proper build
-# flags are used.
+# "rm -rf build install" to be sure the proper build flags are used.
 
 # * CONTRIB_DIR      : Dir with third-party dependencies (default: contrib)
 # * MOOSE_DIR        : Top-level MOOSE dir (default: $(CONTRIB_DIR)/moose)
@@ -129,6 +128,7 @@ NEKRS_BUILDDIR := $(CARDINAL_DIR)/build/nekrs
 NEKRS_INSTALL_DIR := $(CONTRIB_INSTALL_DIR)
 NEKRS_INCLUDES := \
 	-I$(NEKRS_DIR)/src \
+	-I$(NEKRS_DIR)/src/bin \
 	-I$(NEKRS_DIR)/src/bench/advsub \
 	-I$(NEKRS_DIR)/src/bench/axHelm \
 	-I$(NEKRS_DIR)/src/bench/core \
@@ -173,11 +173,12 @@ NEKRS_INCLUDES := \
 	-I$(NEKRS_DIR)/src/pointInterpolation/findpts/kernels \
 	-I$(NEKRS_DIR)/src/udf \
 	-I$(NEKRS_DIR)/src/utils \
-	-I$(NEKRS_INSTALL_DIR)/gatherScatter \
 	-I$(NEKRS_INSTALL_DIR)/include \
+	-I$(NEKRS_INSTALL_DIR)/kernels \
 	-I$(NEKRS_INSTALL_DIR)/libparanumal/include \
 	-I$(NEKRS_INSTALL_DIR)/include/libP/parAlmond \
-	-I$(NEKRS_INSTALL_DIR)/include/linAlg
+	-I$(NEKRS_INSTALL_DIR)/include/linAlg \
+	-I$(NEKRS_INSTALL_DIR)/include/core
 NEKRS_LIBDIR := $(NEKRS_INSTALL_DIR)/lib
 NEKRS_LIB := $(NEKRS_LIBDIR)/libnekrs.so
 # This needs to be exported
