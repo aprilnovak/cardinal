@@ -1716,7 +1716,6 @@ referenceAdditiveScale(const field::NekFieldEnum & field)
   }
 }
 
-
 void
 dimensionalize(const field::NekFieldEnum & field, double & value)
 {
