@@ -727,26 +727,23 @@ struct usrwrkIndices
 struct characteristicScales
 {
   double U_ref = 1;
-
   double T_ref = 0;
-
   double dT_ref = 1;
-
+  double P_ref = 1;
   double L_ref = 1;
-
   double A_ref = 1;
-
   double V_ref = 1;
-
   double rho_ref = 1;
-
   double Cp_ref = 1;
-
   double flux_ref = 1;
-
   double source_ref = 1;
-
   double t_ref = 1;
+  double s01_ref = 0;
+  double ds01_ref = 1;
+  double s02_ref = 0;
+  double ds02_ref = 1;
+  double s03_ref = 0;
+  double ds03_ref = 1;
 };
 
 /**
@@ -904,12 +901,18 @@ void z_displacement(const int id, const dfloat value);
  * @param[in] rho_ref reference density
  * @param[in] Cp_ref reference heat capacity
  */
-void initializeDimensionalScales(const double U_ref,
-                                 const double T_ref,
-                                 const double dT_ref,
-                                 const double L_ref,
-                                 const double rho_ref,
-                                 const double Cp_ref);
+void initializeDimensionalScales(const double U,
+                                 const double T,
+                                 const double dT,
+                                 const double L,
+                                 const double rho,
+                                 const double Cp,
+                                 const double s01,
+                                 const double ds01,
+                                 const double s02,
+                                 const double ds02,
+                                 const double s03,
+                                 const double ds03);
 
 /**
  * \brief Dimensionalize a field by multiplying the nondimensional form by the reference
@@ -943,6 +946,12 @@ double referenceSource();
  * @return reference length scale
  */
 double referenceLength();
+
+/**
+ * Get the reference pressure scale
+ * @return reference pressure scale
+ */
+double referencePressure();
 
 /**
  * Get the reference time scale

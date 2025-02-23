@@ -61,11 +61,6 @@ NekPointValue::execute()
   switch (_field)
   {
     case field::velocity_component:
-      paramError(
-          "field",
-          "The 'velocity_component' option is not currently enabled. If you would like to "
-          "interpolate V*hat(n), you should instead interpolate the three velocity components "
-          "individually and then post-apply the unit normal");
     case field::velocity_x:
     case field::velocity_y:
     case field::velocity_z:
@@ -90,7 +85,6 @@ NekPointValue::execute()
       interp.eval(n_values, nrs->fieldOffset, nrs->cds->o_S, n, o_interpolated);
       break;
     case field::unity:
-      _value = 1;
       break;
     default:
       mooseError("Unhandled NekFieldEnum in NekPointValue!");
@@ -105,7 +99,7 @@ NekPointValue::execute()
   switch (_field)
   {
     case field::velocity_component:
-      // error already handled earlier
+      _value = interpolated[0] * _velocity_direction(0) + interpolated[1] * _velocity_direction(1) + interpolated[2] * _velocity_direction(2);
       break;
     case field::velocity_x:
       _value = interpolated[0];
@@ -145,12 +139,14 @@ NekPointValue::execute()
       _value = interpolated[3];
       break;
     case field::unity:
+      _value = 1;
       break;
     default:
       mooseError("Unhandled NekFieldEnum in NekPointValue!");
   }
 
   nekrs::dimensionalize(_field, _value);
+  _value += nekrs::referenceAdditiveScale(_field);
 }
 
 Real
