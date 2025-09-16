@@ -49,6 +49,9 @@ protected:
   /// Assumed units in the input quantities
   virtual std::string units() const = 0;
 
+  /// Target k_eff for search
+  const Real & _keff_target;
+  
   /// Maximum range of value to explore
   const Real & _maximum;
 

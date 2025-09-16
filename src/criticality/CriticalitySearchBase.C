@@ -28,6 +28,10 @@ CriticalitySearchBase::validParams()
 {
   auto params = MooseObject::validParams();
   params += OpenMCBase::validParams();
+  params.addParam<Real>(
+      "keff_target", 
+      1.0,
+      "Target value of k_eff for the criticality search.");
   params.addRequiredParam<Real>(
       "minimum",
       "Minimum for values to search over; the root must occur at a value greater than the minimum");
@@ -53,11 +57,16 @@ CriticalitySearchBase::validParams()
 CriticalitySearchBase::CriticalitySearchBase(const InputParameters & parameters)
   : MooseObject(parameters),
     OpenMCBase(this, parameters),
+    _keff_target(getParam<Real>("keff_target")),
     _maximum(getParam<Real>("maximum")),
     _minimum(getParam<Real>("minimum")),
     _tolerance(getParam<Real>("tolerance")),
     _estimator(getParam<MooseEnum>("estimator").getEnum<eigenvalue::EigenvalueEnum>())
 {
+  if (_keff_target <=0 )
+    paramError("keff_target",
+               "The 'keff_target' value (" + std::to_string(_keff_target) + 
+               ") must be greater than 0.");
   if (_minimum >= _maximum)
     paramError("minimum",
                "The 'minimum' value (" + std::to_string(_minimum) +
@@ -109,13 +118,13 @@ CriticalitySearchBase::searchForCriticality()
           "); you may have to run a lot of criticality search points to converge to this "
           "tolerance. You may want to loosen 'tolerance' or increase the number of particles."));
 
-    return k - 1.0;
+    return k - _keff_target;
   };
 
   BrentsMethod::root(func, _minimum, _maximum, _tolerance);
 
   // check if the method converged
-  if (abs(kMean(_estimator) - 1.0) >= _tolerance)
+  if (abs(kMean(_estimator) - _keff_target) >= _tolerance)
     mooseError("Failed to converge criticality search! This may happen if your tolerance is too "
                "tight given the statistical error in the computation of k.");
 
