@@ -28,9 +28,10 @@ CriticalitySearchBase::validParams()
 {
   auto params = MooseObject::validParams();
   params += OpenMCBase::validParams();
-  params.addParam<Real>(
+  params.addRangeCheckParam<Real>(
       "keff_target", 
       1.0,
+      "keff_target > 0",
       "Target value of k_eff for the criticality search.");
   params.addRequiredParam<Real>(
       "minimum",
@@ -63,10 +64,6 @@ CriticalitySearchBase::CriticalitySearchBase(const InputParameters & parameters)
     _tolerance(getParam<Real>("tolerance")),
     _estimator(getParam<MooseEnum>("estimator").getEnum<eigenvalue::EigenvalueEnum>())
 {
-  if (_keff_target <=0 )
-    paramError("keff_target",
-               "The 'keff_target' value (" + std::to_string(_keff_target) + 
-               ") must be greater than 0.");
   if (_minimum >= _maximum)
     paramError("minimum",
                "The 'minimum' value (" + std::to_string(_minimum) +
