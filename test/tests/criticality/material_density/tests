@@ -47,6 +47,14 @@
     requirement = 'The system shall conduct a criticality search based on material density.'
     capabilities = 'openmc'
   []
+  [search_nonunity]
+    type = CSVDiff
+    input = openmc.i
+    cli_args = 'Problem/CriticalitySearch/keff_target=0.95'
+    csvdiff = openmc_keff0.95_out.csv
+    requirement = 'The system shall conduct an eigenvalue search for a k_eff = 0.95 based on material density.'
+    capabilities = 'openmc'
+  []
   [negative_min]
     type = RunException
     input = openmc.i
