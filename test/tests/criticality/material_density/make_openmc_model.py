@@ -18,38 +18,43 @@
 
 import openmc
 
-model = openmc.Model()
+def make_pu_cube(pu_density= 10.0):
+    model = openmc.Model()
 
-pu = openmc.Material()
-pu.set_density('g/cc', 10.0)
-pu.add_nuclide('Pu239', 1.0)
+    pu = openmc.Material()
+    pu.set_density('g/cc', pu_density)
+    pu.add_nuclide('Pu239', 1.0)
 
-model.materials = openmc.Materials([pu])
+    model.materials = openmc.Materials([pu])
 
-# Create cube
-R = 10.0
-l = openmc.XPlane(x0=0, boundary_type='vacuum')
-r = openmc.XPlane(x0=R, boundary_type='vacuum')
-b = openmc.YPlane(y0=0, boundary_type='vacuum')
-t = openmc.YPlane(y0=R, boundary_type='vacuum')
-f = openmc.ZPlane(z0=0, boundary_type='vacuum')
-k = openmc.ZPlane(z0=R, boundary_type='vacuum')
+    # Create cube
+    R = 10.0
+    l = openmc.XPlane(x0=0, boundary_type='vacuum')
+    r = openmc.XPlane(x0=R, boundary_type='vacuum')
+    b = openmc.YPlane(y0=0, boundary_type='vacuum')
+    t = openmc.YPlane(y0=R, boundary_type='vacuum')
+    f = openmc.ZPlane(z0=0, boundary_type='vacuum')
+    k = openmc.ZPlane(z0=R, boundary_type='vacuum')
 
-# create a box
-box = openmc.Cell(region=+l & -r & +b & -t & +f & -k, fill=pu)
-model.geometry = openmc.Geometry([box])
+    # create a box
+    box = openmc.Cell(region=+l & -r & +b & -t & +f & -k, fill=pu)
+    model.geometry = openmc.Geometry([box])
 
-# Finally, define some run settings
-model.settings.batches = 50
-model.settings.inactive = 10
-model.settings.particles = 100
+    # Finally, define some run settings
+    model.settings.batches = 50
+    model.settings.inactive = 10
+    model.settings.particles = 100
 
-lower_left = (0, 0, 0)
-upper_right = (R, R, R)
-uniform_dist = openmc.stats.Box(lower_left, upper_right)
-model.settings.source = openmc.source.IndependentSource(space=uniform_dist)
-model.settings.temperature = {'default': 600.0,
-                        'method': 'nearest',
-                        'range': (294.0, 1600.0)}
+    lower_left = (0, 0, 0)
+    upper_right = (R, R, R)
+    uniform_dist = openmc.stats.Box(lower_left, upper_right)
+    model.settings.source = openmc.source.IndependentSource(space=uniform_dist)
+    model.settings.temperature = {'default': 600.0,
+                            'method': 'nearest',
+                            'range': (294.0, 1600.0)}
 
-model.export_to_xml()
+    return model
+
+if __name__ == "__main__":
+    model = make_pu_cube()
+    model.export_to_xml()
