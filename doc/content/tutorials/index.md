@@ -102,3 +102,4 @@ Think you're ready for the tutorials? Take our [OpenMC Cardinal quiz](https://ww
 14. [Coupling to arbitrary MOOSE applications](other_apps.md)
 15. [Assessing convergence](convergence.md)
 16. [What Transfer should I use?](transfers.md)
+17. [Multiphysics instablities](lwr_instability.md)

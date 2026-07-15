@@ -14,6 +14,7 @@
 
 [Variables]
   [T]
+    initial_condition = ${T_inlet}
   []
 []
 
@@ -31,13 +32,19 @@
 []
 
 [Materials]
-   [k_fuel]
-    type = GenericConstantMaterial
-    prop_names = 'thermal_conductivity'
-    prop_values = '${fuel_conductivity}'
+  [k_fuel]
+    type = HeatConductionMaterial
+    thermal_conductivity_temperature_function = '(100/(7.5408+17.629*t/1000+3.6142*(t/1000)^2) + 6400/((t/1000)^(5/2))*exp(-16.35/(t/1000)))*1/(1-(2.6-0.5*t/1000)*0.05)'
+    temperature = T
     block = 'fuel'
   []
-   [k_clad]
+  [dk_fuel_dT]
+    type = GenericConstantMaterial
+    prop_names = 'thermal_conductivity_dT'
+    prop_values = '0.0'
+    block = 'clad'
+  []
+  [k_clad]
     type = GenericConstantMaterial
     prop_names = 'thermal_conductivity'
     prop_values = '20.0'

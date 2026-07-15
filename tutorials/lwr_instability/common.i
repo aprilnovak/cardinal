@@ -7,8 +7,10 @@ P_outlet = 15.51e6            # Pascal
 
 # estimated from the power of BEAVRS, which is 3411 MWth. This is then divided among
 # the number of assemblies (193) and the number of fuel pins per assembly (264). The
-# result is then multiplied by 4 since we are modeling 4 pins.
-power = 267781.44135657087    # Watts
+# result is then multiplied by 4 since we are modeling 4 pins. This gives a nominal
+# total power of 267781 Watts.
+# [178520.6, 267781, 401671.5]
+power = 267781
 
 # https://www.tandfonline.com/doi/full/10.13182/NSE16-3?needAccess=true#d1e860
 # This value is parametrically varied to allow the coolant density to either obtain a large
@@ -17,13 +19,8 @@ power = 267781.44135657087    # Watts
 # per assembly (17*17), then multiply by 2*2 (number of pins in our 2x2 array).
 # Finally, multiply by 1/3600 to convert from hours to seconds. This gives a
 # nominal value of ~ 1.2 kg/s
-# values: [0.6, 1.2, 2.4] kg/s
-mdot = 3.2
-
-# This value is parametrically varied to allow the fuel temperature to either obtain a
-# large value (low conductivity) or a smaller value (high conductivity).
-# values = [2, 4, 8]
-fuel_conductivity = 2.0
+# values: [0.8, 1.2, 1.8] kg/s
+mdot = 1.2
 
 # number of layers in the initial mesh
 n_layers = 100

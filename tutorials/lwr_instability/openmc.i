@@ -15,9 +15,8 @@
   temperature_blocks = 'fuel clad water'
   density_blocks = 'water'
   initial_properties = 'xml'
-  reuse_source = true
 
-  max_batches = 2000
+  max_batches = 1000
   batch_interval = 20
 
   [Tallies]

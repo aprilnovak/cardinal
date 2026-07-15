@@ -94,6 +94,7 @@ model.settings.particles = 20000
 model.settings.ptables   = True
 model.settings.temperature['method']='interpolation'
 model.settings.temperature['range'] = (300.0, 3000.0)
+model.settings.temperature['tolerance'] = 100
 model.settings.temperature['default'] = specs.T_inlet
 
 model.export_to_model_xml()
