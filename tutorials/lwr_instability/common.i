@@ -20,10 +20,12 @@ power = 267781
 # Finally, multiply by 1/3600 to convert from hours to seconds. This gives a
 # nominal value of ~ 1.2 kg/s
 # values: [0.8, 1.2, 1.8] kg/s
-mdot = 1.2
+mdot = 10.0
+
+fuel_conductivity = 20.0
 
 # number of layers in the initial mesh
-n_layers = 100
+n_layers = 50
 
 # number of cells in OpenMC
 n_cell_layers = 50

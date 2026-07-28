@@ -34,7 +34,8 @@
 [Materials]
   [k_fuel]
     type = HeatConductionMaterial
-    thermal_conductivity_temperature_function = '(100/(7.5408+17.629*t/1000+3.6142*(t/1000)^2) + 6400/((t/1000)^(5/2))*exp(-16.35/(t/1000)))*1/(1-(2.6-0.5*t/1000)*0.05)'
+    #thermal_conductivity_temperature_function = '(100/(7.5408+17.629*t/1000+3.6142*(t/1000)^2) + 6400/((t/1000)^(5/2))*exp(-16.35/(t/1000)))*1/(1-(2.6-0.5*t/1000)*0.05)'
+    thermal_conductivity_temperature_function = ${fuel_conductivity}
     temperature = T
     block = 'fuel'
   []
