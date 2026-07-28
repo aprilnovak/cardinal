@@ -59,6 +59,8 @@ OpenMCProblemBase::validParams()
       "Scaling factor to apply to [Mesh] to get to units of centimeters that OpenMC expects; "
       "setting 'scaling = 100.0', for instance, indicates that the [Mesh] is in units of meters");
 
+  params.addParam<bool>("skip_density_transfers", false, "Whether to skip all density transfers into OpenMC; you might use this for debugging or if you want to use other objects in Cardinal (e.g. postprocessors, auxkernels) that require the element-cell mapping information for density feedback to exist but do not want to modify density in the OpenMC model");
+
   // interfaces to directly set some OpenMC parameters
   params.addRangeCheckedParam<unsigned int>(
       "openmc_verbosity",
@@ -127,6 +129,7 @@ OpenMCProblemBase::OpenMCProblemBase(const InputParameters & params)
     _specified_scaling(params.isParamSetByUser("scaling")),
     _scaling(getParam<Real>("scaling")),
     _skip_statepoint(getParam<bool>("skip_statepoint")),
+    _skip_density_transfers(getParam<bool>("skip_density_transfers")),
     _fixed_point_iteration(-1),
     _total_n_particles(0),
     _has_adaptivity(getMooseApp().actionWarehouse().hasActions("set_adaptivity_options")),

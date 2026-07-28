@@ -523,6 +523,9 @@ protected:
   /// Whether to skip writing statepoints from OpenMC
   const bool & _skip_statepoint;
 
+  /// Whether to skip all density transfers into OpenMC
+  const bool & _skip_density_transfers;
+
   /**
    * Fixed point iteration index used in relaxation; because we sometimes run OpenMC
    * in a pseudo-transient coupling with NekRS, we simply increment this by 1 each

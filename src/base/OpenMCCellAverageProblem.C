@@ -2502,7 +2502,7 @@ OpenMCCellAverageProblem::firstContainedMaterialCell(const cellInfo & cell_info)
 void
 OpenMCCellAverageProblem::sendDensityToOpenMC() const
 {
-  if (!_specified_density_feedback)
+  if (!_specified_density_feedback || _skip_density_transfers)
     return;
 
   _console << "Sending density to OpenMC cells... " << std::endl;
