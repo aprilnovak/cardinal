@@ -8,45 +8,33 @@
 []
 
 [Problem]
-  type = FEProblem
-  solve = false
-[]
+  type = OpenMCCellAverageProblem
+  power = ${power}
+  lowest_cell_level = 1
+  scaling = 100
+  temperature_blocks = 'fuel clad water'
+  density_blocks = 'water'
+  initial_properties = 'xml'
 
-#[Problem]
-#  type = OpenMCCellAverageProblem
-#  power = ${power}
-#  lowest_cell_level = 1
-#  scaling = 100
-#  temperature_blocks = 'fuel clad water'
-#  density_blocks = 'water'
-#  initial_properties = 'xml'
-#
-#  max_batches = 1000
-#  batch_interval = 20
-#  particles = 1000
-#
-#  [Tallies]
-#    [power]
-#      type = CellTally
-#      score = 'kappa_fission'
-#      trigger = rel_err
-#      trigger_threshold = 2e-2
-#      block = 'fuel'
-#    []
-#  []
-#[]
+  max_batches = 10000
+  batch_interval = 20
+
+  [Tallies]
+    [power]
+      type = CellTally
+      score = 'kappa_fission'
+      trigger = rel_err
+      trigger_threshold = 2e-2
+      block = 'fuel'
+    []
+  []
+[]
 
 [AuxVariables]
   [q_bottom_half]
     family = MONOMIAL
     order = CONSTANT
     block = 'fuel'
-  []
-  [kappa_fission]
-    family = MONOMIAL
-    order = CONSTANT
-    block = 'fuel'
-    initial_condition = 1e9
   []
 []
 
@@ -95,13 +83,13 @@
     from_postprocessors_to_be_preserved = openmc_power_integral
     to_postprocessors_to_be_preserved = conduction_power_integral
   []
-  #[solid_temperature_from_conduction]
-  #  type = MultiAppGeneralFieldNearestLocationTransfer
-  #  from_multi_app = conduction
-  #  source_variable = T
-  #  variable = temp
-  #  to_blocks = 'fuel clad'
-  #[]
+  [solid_temperature_from_conduction]
+    type = MultiAppGeneralFieldNearestLocationTransfer
+    from_multi_app = conduction
+    source_variable = T
+    variable = temp
+    to_blocks = 'fuel clad'
+  []
 
   [linear_heat_rate_to_subchannel]
     type = MultiAppGeneralFieldNearestLocationTransfer
@@ -115,26 +103,26 @@
     #from_postprocessors_to_be_preserved = conduction_power_integral
     #to_postprocessors_to_be_preserved = power
   []
-  #[fluid_temperature_from_subchannel]
-  #  type = MultiAppGeneralFieldNearestLocationTransfer
-  #  source_variable = T
-  #  variable = temp
-  #  from_multi_app = subchannel
-  #  greedy_search = true
-  #  use_bounding_boxes = false
-  #  to_blocks = 'water'
-  #  from_blocks = 'subchannel'
-  #[]
-  #[fluid_density_from_subchannel]
-  #  type = MultiAppGeneralFieldNearestLocationTransfer
-  #  source_variable = rho
-  #  variable = density
-  #  from_multi_app = subchannel
-  #  greedy_search = true
-  #  use_bounding_boxes = false
-  #  to_blocks = 'water'
-  #  from_blocks = 'subchannel'
-  #[]
+  [fluid_temperature_from_subchannel]
+    type = MultiAppGeneralFieldNearestLocationTransfer
+    source_variable = T
+    variable = temp
+    from_multi_app = subchannel
+    greedy_search = true
+    use_bounding_boxes = false
+    to_blocks = 'water'
+    from_blocks = 'subchannel'
+  []
+  [fluid_density_from_subchannel]
+    type = MultiAppGeneralFieldNearestLocationTransfer
+    source_variable = rho
+    variable = density
+    from_multi_app = subchannel
+    greedy_search = true
+    use_bounding_boxes = false
+    to_blocks = 'water'
+    from_blocks = 'subchannel'
+  []
   [clad_surface_temperature_to_conduction]
     type = MultiAppGeneralFieldNearestLocationTransfer
     from_multi_app = subchannel
